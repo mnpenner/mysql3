@@ -1,0 +1,7 @@
+syntax: regexp
+
+^node_modules/
+^\.idea/
+^dist/
+\.log$
+/secret\.json$
