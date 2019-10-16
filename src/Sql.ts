@@ -1,4 +1,5 @@
 import * as SqlString from 'sqlstring';
+import * as moment from 'moment-timezone';
 
 const ID_GLOBAL_REGEXP    = /`/g;
 const QUAL_GLOBAL_REGEXP  = /\./g;
@@ -52,6 +53,45 @@ export function raw(sqlString: string|_SqlFrag): _SqlFrag {
     return new _SqlFrag(sqlString);
 }
 
-export function date(value: Date|string|number, timezone?: string): _SqlFrag {
+export function date(value: Date|string|number|moment.Moment, outputTimezone?: string, inputTimezone?: string): _SqlFrag {
+    // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
+    const d = inputTimezone ? moment.tz(value, inputTimezone) : moment(value);
+    if(outputTimezone) d.tz(outputTimezone);
+    return raw(`DATE '${d.format('YYYY-MM-DD')}'`)
+}
 
+type nil = null|undefined;
+
+export function timestamp(value: moment.MomentInput, outputTimezone?: string|null, inputTimezone?: string|null, fsp?: number|null): _SqlFrag {
+    // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
+    // https://momentjs.com/docs/#/displaying/format/
+    let d;
+    if(inputTimezone) {
+        const zone = moment.tz.zone(inputTimezone);
+        if(!zone) throw new Error(`Invalid input timezone: ${inputTimezone}`);
+        d = moment.tz(value, zone.name);
+    } else {
+        d = moment(value);
+    }
+    if(!d.isValid()) {
+        throw new Error(`Input date is not valid`);
+    }
+    if(outputTimezone) {
+        const zone = moment.tz.zone(outputTimezone);
+        if(!zone) throw new Error(`Invalid output timezone: ${outputTimezone}`);
+        d.tz(zone.name)
+    }
+    let frac = '';
+    if(fsp != null) {
+        if(fsp < 0 || fsp > 6) {
+            // https://dev.mysql.com/doc/refman/8.0/en/date-and-time-type-overview.html
+            throw new Error(`fsp out of range: ${fsp}`);
+        } else if(fsp > 0) {
+            frac = '.' + 'S'.repeat(fsp);
+        }
+    } else if(d.milliseconds() !== 0) {
+        frac = '.SSS';
+    }
+
+    return raw(`TIMESTAMP '${d.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
 }
