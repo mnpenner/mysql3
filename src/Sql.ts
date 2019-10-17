@@ -93,5 +93,5 @@ export function timestamp(value: moment.MomentInput, outputTimezone?: string|nul
         frac = '.SSS';
     }
 
-    return raw(`TIMESTAMP '${d.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
+    return raw(`TIMESTAMP'${d.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
 }
