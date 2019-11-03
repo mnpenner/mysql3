@@ -30,7 +30,7 @@ dist/package.json: package.json | dist
 	jq 'del(.private, .devDependencies, .scripts, .eslintConfig, .babel)' $< > $@
 
 test: node_modules/.yarn-integrity
-	$(NM)/mocha -r ts-node/register src/**/*.spec.ts
+	$(NM)/mocha --require ts-node/register --watch --watch-extensions ts "src/**/*.spec.ts"
 
 dev: node_modules/.yarn-integrity
 	$(NM)/ts-node tests/test

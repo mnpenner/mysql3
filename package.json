@@ -8,7 +8,7 @@
         "@async-generators/from-emitter": "^0.3.0",
         "@types/moment-timezone": "^0.5.12",
         "@types/mysql": "^2.15.7",
-        "@types/sqlstring": "^2.2.1",
+        "cli-highlight": "^2.1.1",
         "moment-timezone": "^0.5.27",
         "mysql": "^2.17.1",
         "sqlstring": "^2.3.1"
