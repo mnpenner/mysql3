@@ -1,4 +1,3 @@
-import * as SqlString from 'sqlstring';
 import * as moment from 'moment-timezone';
 
 const ID_GLOBAL_REGEXP = /`/g;
