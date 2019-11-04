@@ -68,6 +68,7 @@ export default class ConnectionPool {
             charset: 'utf8mb4',
             safeUpdates: true,
             sqlMode: [
+                // TODO: these should be set in my.cnf instead
                 SqlMode.OnlyFullGroupBy,
                 SqlMode.StrictTransTables,
                 SqlMode.StrictAllTables,
@@ -77,6 +78,7 @@ export default class ConnectionPool {
                 SqlMode.NoEngineSubstitution,
                 SqlMode.NoUnsignedSubtraction,
                 SqlMode.PadCharToFullLength,
+                SqlMode.NoAutoCreateUser,
             ],
             typeCast,
             ...config,
@@ -98,6 +100,7 @@ export default class ConnectionPool {
                 if(safeUpdates != null) {
                     conn.query(sql`SET sql_safe_updates=${safeUpdates ? 1 : 0}`);
                 }
+                // TODO: allow arbitrary connection queries
             });
         }
     }
