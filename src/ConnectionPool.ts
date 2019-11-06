@@ -109,6 +109,11 @@ export class ConnectionPool {
         return this.withConnection(conn => conn.query(query))
     }
 
+
+    stream<TRecord extends object=Record<string,any>>(query: SqlFrag): AsyncIterable<TRecord> {
+        // TODO
+    }
+
     withConnection<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult> {
         return new Promise((resolve, reject) => {
             this.pool.getConnection(async (err, conn) => {
