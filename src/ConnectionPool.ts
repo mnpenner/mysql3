@@ -58,7 +58,7 @@ function typeCast(field: FieldInfo, next: NextFn): any {
     return next();
 }
 
-export default class ConnectionPool {
+export class ConnectionPool {
     private pool: Pool;
     private readonly config: PoolConfig;
 
