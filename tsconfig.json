@@ -20,7 +20,7 @@
         "esModuleInterop": false
     },
     "files": [
-        "src/DatabaseWrapper"
+        "src/index"
     ],
     "exclude": [
         "node_modules"

@@ -14,17 +14,18 @@ npm i mysql3
 ### Usage
 
 ```js
-import DbConnectionPool from 'mysql3';
+import {ConnectionPool, sql} from 'mysql3';
 
 (async () => {
-    const db = new DbConnectionPool({
+    const db = new ConnectionPool({
         user: 'AzureDiamond',
         password: 'hunter2',
         host: 'example.com',
         database: 'some_daterbase',
     });
     
-    const users = await db.query("select * from users limit 3").fetchAll();
+    const username = "george";
+    const users = await db.query(sql`select * from users where username=${username}`);
 
     db.close();
 })();
