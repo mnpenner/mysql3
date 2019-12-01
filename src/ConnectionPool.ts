@@ -78,7 +78,6 @@ export class ConnectionPool {
         this.config = {
             timezone: 'Z',
             charset: 'utf8mb4',
-            safeUpdates: true,
             typeCast,
             ...config,
         };
@@ -127,16 +126,18 @@ export class ConnectionPool {
         });
     }
 
-    transaction(callback: (conn:PoolConnection) => Promise<void>): Promise<void> {
+    transaction<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult> {
         return this.withConnection(async conn => {
             await conn.query(sql`START TRANSACTION`);
+            let result: TResult;
             try {
-                await callback(conn);
+                result = await callback(conn);
             } catch(err) {
                 await conn.query(sql`ROLLBACK`);
                 throw err;
             }
             await conn.query(sql`COMMIT`);
+            return result;
         })
     }
 
