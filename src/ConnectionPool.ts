@@ -13,15 +13,27 @@ export interface PoolConfig extends Omit<_PoolConfig,'typeCast'|'supportBigNumbe
      */
     printQueries?: boolean
     typeCast?: (field: FieldInfo, next: NextFn) => any,
+    /**
+     * @deprecated Set in my.cnf under [mysqld]
+     */
     sqlMode?: SqlMode[]|string|null,
+    /**
+     * Enable or disable foreign key checks for the current session. May ease migration scripts, but not recommended
+     * for production usage.
+     */
     foreignKeyChecks?: boolean|null,
     /**
      * If this variable is enabled, UPDATE and DELETE statements that do not use a key in the WHERE clause or a LIMIT clause produce an error. This makes it possible to catch UPDATE and DELETE statements where keys are not used properly and that would probably change or delete a large number of rows.
      *
      * @link https://mariadb.com/kb/en/library/server-system-variables/#sql_safe_updates
      * @link https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_sql_safe_updates
+     * @deprecated Set in my.cnf under [mysqld]
      */
     safeUpdates?: boolean|null,
+    /**
+     * Array of SQL statements to execute upon connection.
+     */
+    initSql?: Array<SqlFrag>
 }
 
 export type NextFn = () => void
@@ -67,40 +79,28 @@ export class ConnectionPool {
             timezone: 'Z',
             charset: 'utf8mb4',
             safeUpdates: true,
-            sqlMode: [
-                // TODO: these should be set in my.cnf instead
-                SqlMode.OnlyFullGroupBy,
-                SqlMode.StrictTransTables,
-                SqlMode.StrictAllTables,
-                SqlMode.NoZeroInDate,
-                SqlMode.NoZeroDate,
-                SqlMode.ErrorForDivisionByZero,
-                SqlMode.NoEngineSubstitution,
-                SqlMode.NoUnsignedSubtraction,
-                SqlMode.PadCharToFullLength,
-                SqlMode.NoAutoCreateUser,
-            ],
             typeCast,
             ...config,
         };
-        let {sqlMode,foreignKeyChecks,safeUpdates,printQueries,...other} = this.config;
+        let {sqlMode,foreignKeyChecks,safeUpdates,printQueries,initSql,...other} = this.config;
         this.pool = mysql.createPool(other);
 
-        if(sqlMode != null || foreignKeyChecks != null || safeUpdates != null) {
-            const strSqlMode = Array.isArray(sqlMode) ?  sqlMode.join(',') : sqlMode;
-
+        const connQueries = initSql ? [...initSql] : [];
+        if(sqlMode != null) {
+            connQueries.push(sql`SET sql_mode=${Array.isArray(sqlMode) ?  sqlMode.join(',') : sqlMode}`);
+        }
+        if(foreignKeyChecks != null) {
+            connQueries.push(sql`SET foreign_key_checks=${foreignKeyChecks ? 1 : 0}`);
+        }
+        if(safeUpdates) {
+            connQueries.push(sql`SET sql_safe_updates=${safeUpdates ? 1 : 0}`);
+        }
+        if(connQueries.length) {
             this.pool.on('connection', (_conn: _PoolConnection) => {
                 const conn = this._wrap(_conn);
-                if(strSqlMode != null) {
-                    conn.query(sql`SET sql_mode=${strSqlMode}`);
+                for(const query of connQueries) {
+                    conn.query(query); // TODO: do we need to wait for these queries to finish...?
                 }
-                if(foreignKeyChecks != null) {
-                    conn.query(sql`SET foreign_key_checks=${foreignKeyChecks ? 1 : 0}`);
-                }
-                if(safeUpdates != null) {
-                    conn.query(sql`SET sql_safe_updates=${safeUpdates ? 1 : 0}`);
-                }
-                // TODO: allow arbitrary connection queries
             });
         }
     }
@@ -110,9 +110,9 @@ export class ConnectionPool {
     }
 
 
-    stream<TRecord extends object=Record<string,any>>(query: SqlFrag): AsyncIterable<TRecord> {
-        // TODO
-    }
+    // stream<TRecord extends object=Record<string,any>>(query: SqlFrag): AsyncIterable<TRecord> {
+    //     // TODO
+    // }
 
     withConnection<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult> {
         return new Promise((resolve, reject) => {

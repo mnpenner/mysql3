@@ -1,6 +1,6 @@
 ## Node MySQL 3
 
-A small OOP wrapper around [Node MySQL 2](https://github.com/sidorares/node-mysql2). 
+A small OOP wrapper around [mysqljs/mysql](https://github.com/mysqljs/mysql). 
 
 
 ### Installation
@@ -20,11 +20,11 @@ import {ConnectionPool, sql} from 'mysql3';
     const db = new ConnectionPool({
         user: 'AzureDiamond',
         password: 'hunter2',
-        host: 'example.com',
-        database: 'some_daterbase',
+        host: 'bash.org',
+        database: 'irc',
     });
     
-    const username = "george";
+    const username = "Cthon98";
     const users = await db.query(sql`select * from users where username=${username}`);
 
     db.close();
