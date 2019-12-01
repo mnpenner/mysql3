@@ -1,6 +1,6 @@
 {
     "name": "mysql3",
-    "version": "0.4.5",
+    "version": "0.4.6",
     "license": "MIT",
     "private": true,
     "main": "index",
@@ -10,23 +10,30 @@
         "@types/mysql": "^2.15.7",
         "cli-highlight": "^2.1.1",
         "moment-timezone": "^0.5.27",
-        "mysql": "^2.17.1",
-        "sqlstring": "^2.3.1"
+        "mysql": "^2.17.1"
     },
     "devDependencies": {
+        "@babel/cli": "^7.7.4",
+        "@babel/core": "^7.7.4",
+        "@babel/node": "^7.7.4",
+        "@babel/plugin-proposal-nullish-coalescing-operator": "^7.7.4",
+        "@babel/plugin-proposal-optional-chaining": "^7.7.4",
+        "@babel/plugin-syntax-bigint": "^7.7.4",
+        "@babel/preset-env": "^7.7.4",
+        "@babel/preset-typescript": "^7.7.4",
+        "@babel/register": "^7.7.4",
         "@types/chai": "^4.2.3",
         "@types/mocha": "^5.2.7",
         "chai": "^4.2.0",
         "mocha": "^6.2.1",
-        "ts-node": "^8.4.1",
-        "typescript": "^3.6.4"
+        "typescript": "^3.7"
     },
     "engines": {
-        "node": ">=10"
+        "node": ">=10.7"
     },
     "repository": {
         "type": "hg",
-        "url": "UNAVAILABLE"
+        "url": "ssh://hg@mpen.ca/personal/mysql3"
     },
     "publishConfig": {
         "registry": "https://registry.npmjs.org"

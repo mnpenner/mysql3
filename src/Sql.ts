@@ -1,4 +1,4 @@
-import * as moment from 'moment-timezone';
+import moment from 'moment-timezone';
 
 const ID_GLOBAL_REGEXP = /`/g;
 const QUAL_GLOBAL_REGEXP = /\./g;
@@ -16,25 +16,54 @@ export class SqlFrag {
     }
 }
 
+function isSafe(x: any): x is SqlFrag {
+    return x instanceof SqlFrag;
+}
 
+/**
+ * @deprecated
+ */
+export function raw(...args: Parameters<typeof sql.raw>) {
+    return sql.raw(...args);
+}
+
+/**
+ * @deprecated Use sql.as instead.
+ */
 export function selectAs(fields: Record<string, string>): SqlFrag {
     return new SqlFrag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)} AS ${_escapeIdStrict(fields[fieldName])}`).join(', '));
 }
 
-export function set(fields: Record<string, Value>): SqlFrag {
-    return new SqlFrag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${escapeValue(fields[fieldName]).toSqlString()}`).join(', '));
+/**
+ * @deprecated
+ */
+export function set(...args: Parameters<typeof sql.set>) {
+    return sql.set(...args);
 }
 
-export function escapeId(id: Id): SqlFrag {
-    if (id instanceof SqlFrag) return id;
-    if (Array.isArray(id)) {
-        return new SqlFrag(id.map(_escapeIdStrict).join('.'));
-    }
-    return new SqlFrag(_escapeIdStrict(id));
+/**
+ * @deprecated
+ */
+export function timestamp(...args: Parameters<typeof sql.timestamp>) {
+    return sql.timestamp(...args);
+}
+
+/**
+ * @deprecated
+ */
+export function point(...args: Parameters<typeof sql.point>) {
+    return sql.point(...args);
+}
+
+/**
+ * @deprecated
+ */
+export function polygon(...args: Parameters<typeof sql.polygon>) {
+    return sql.polygon(...args);
 }
 
 export function escapeValue(value: Value): SqlFrag {
-    if (value instanceof SqlFrag) return value;
+    if (isSafe(value)) return value;
     return new SqlFrag(_escapeValue(value));
 }
 
@@ -47,7 +76,13 @@ export function escapeLike(value: string, escChar:string = '\\'): string {
     return value.replace(new RegExp(`[%_${escapeRegExp(escChar)}]`,'g'), m => escChar + m);
 }
 
-function _escapeValue(value: UnescapedValue) {
+function _escapeValue(value: Value): string {
+    if (isSafe(value)) {
+        return value.toSqlString();
+    }
+    if(Array.isArray(value)) {
+        return value.map(v => _escapeValue(v)).join(',');
+    }
     if(Buffer.isBuffer(value)) {
         return `x'${value.toString('hex')}'`;
     }
@@ -82,55 +117,33 @@ const CHARS_ESCAPE_MAP: Record<string,string> = {
 };
 
 function _escapeString(value: string): string {
-    return "'" + value.replace(CHARS_REGEX,m => CHARS_ESCAPE_MAP[m]) + "'";
-
-    return "'" + Array.from(value).map(ch => {
-        const cp = ch.codePointAt(0);
-        if(cp === undefined) throw new Error("Bad codepoint");
-        switch(cp) {
-            // https://dev.mysql.com/doc/refman/8.0/en/string-literals.html
-            case 0x00: return "\\0";
-            case 0x27: return "''";
-            case 0x08: return '\\b';
-            case 0x0A: return '\\n';
-            case 0x0D: return '\\r';
-            case 0x09: return '\\t';
-            case 0x1A: return '\\Z';
-            case 0x5C: return '\\\\';
-        }
-        return ch;
-    }).join('') + "'";
+    return "'" + String(value).replace(CHARS_REGEX,m => CHARS_ESCAPE_MAP[m]) + "'";
 }
 
-function _escapeIdLoose(id: string): string {
+export function escapeId(id: Id): SqlFrag {
+    if (isSafe(id)) return id;
+    if (Array.isArray(id)) return new SqlFrag(id.map(_escapeIdStrict).join('.'));
+    return new SqlFrag(_escapeIdStrict(id));
+}
+
+function _escapeIdLoose(id: Id): string {
+    if(isSafe(id)) return id.toSqlString();
+    if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``').replace(QUAL_GLOBAL_REGEXP, '`.`') + '`';
 }
 
-function _escapeIdStrict(id: string): string {
+function _escapeIdStrict(id: Id): string {
+    if(isSafe(id)) return id.toSqlString();
+    if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``') + '`';
 }
 
-type UnescapedValue = string | number | Buffer | bigint | boolean | null;
-type Value = UnescapedValue|SqlFrag;
+type SingleUnescapedValue = string | number | Buffer | bigint | boolean | null;
+type UnescapedValue = SingleUnescapedValue|SingleUnescapedValue[]
+type SingleValue = SingleUnescapedValue|SqlFrag
+type Value = SingleValue|SingleValue[];
 type UnescapedId = string|[string]|[string,string]|[string,string,string];
 type Id = UnescapedId|SqlFrag;
-
-
-export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag {
-    let out = [];
-    let i = 0;
-    for (; i < values.length; ++i) {
-        out.push(strings.raw[i], escapeValue(values[i]).toSqlString());
-    }
-    out.push(strings.raw[i]);
-    return new SqlFrag(out.join(''));
-}
-
-
-export function raw(sqlString: string | SqlFrag): SqlFrag {
-    if (sqlString instanceof SqlFrag) return sqlString;
-    return new SqlFrag(sqlString);
-}
 
 export function date(value: Date | string | number | moment.Moment, outputTimezone?: string, inputTimezone?: string): SqlFrag {
     // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
@@ -158,25 +171,6 @@ function makeMoment(value: moment.MomentInput, outputTimezone?: string | null, i
         d.tz(zone.name)
     }
     return d;
-}
-
-export function timestamp(value: moment.MomentInput, outputTimezone?: string | null, inputTimezone?: string | null, fsp?: number | null): SqlFrag {
-    // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
-    // https://momentjs.com/docs/#/displaying/format/
-    const date = makeMoment(value, outputTimezone, inputTimezone);
-    let frac = '';
-    if (fsp != null) {
-        if (fsp < 0 || fsp > 6) {
-            // https://dev.mysql.com/doc/refman/8.0/en/date-and-time-type-overview.html
-            throw new Error(`fsp out of range: ${fsp}`);
-        } else if (fsp > 0) {
-            frac = '.' + 'S'.repeat(fsp);
-        }
-    } else if (date.milliseconds() !== 0) {
-        frac = '.SSS';
-    }
-
-    return new SqlFrag(`TIMESTAMP'${date.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
 }
 
 interface Point {
@@ -211,26 +205,10 @@ function toPairs(points: PointArray): NumberPair[] {
     throw new Error("Points are not in an expected format")
 }
 
-export function polygon(points: PointArray, autoComplete = true): SqlFrag  {
-    // https://dev.mysql.com/doc/refman/5.7/en/gis-data-formats.html
-    // https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
-    if (!points.length) throw new Error("Cannot create an empty polygon");
-    points = toPairs(points);
-    if (autoComplete) {
-        const l = points.length - 1;
-        if (!(points[0][0] === points[l][0] && points[0][1] === points[l][1])) {
-            points.push([points[0][0], points[0][1]]);
-        }
-    }
-    return sql`PolyFromText(${`POLYGON((${
-        points.map(([x, y]) => `${x} ${y}`).join(',')
-    }))`})`;
-}
 
-export function point(x: number, y: number): SqlFrag  {
-    return sql`PointFromText(${`POINT(${x} ${y})`})`;
-}
-
+/**
+ * @deprecated Experimental.
+ */
 export enum IntervalUnit {
     // https://dev.mysql.com/doc/refman/8.0/en/expressions.html
     MICROSECOND = 'MICROSECOND',
@@ -246,6 +224,9 @@ export enum IntervalUnit {
     // TODO: support the other compound types.
 }
 
+/**
+ * @deprecated Experimental.
+ */
 export function interval(value:number, unit:IntervalUnit=IntervalUnit.MILLISECOND): SqlFrag {
     // https://dev.mysql.com/doc/refman/8.0/en/expressions.html
     if(unit === IntervalUnit.MILLISECOND) {
@@ -256,4 +237,109 @@ export function interval(value:number, unit:IntervalUnit=IntervalUnit.MILLISECON
     // Intervals appear to be rounded in MySQL
     // SELECT TIME'12:00:00' + INTERVAL 1.5 HOUR -- 14:00:00
     return new SqlFrag(`INTERVAL ${Math.round(value)} ${unit}`);
+}
+
+export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag {
+    let out = [];
+    let i = 0;
+    for (; i < values.length; ++i) {
+        out.push(strings.raw[i], escapeValue(values[i]).toSqlString());
+    }
+    out.push(strings.raw[i]);
+    return new SqlFrag(out.join(''));
+}
+
+export interface InsertOptions {
+    /**
+     * Ignore duplicate records.
+     */
+    ignoreDupes?: boolean
+    updateOnDupe?: boolean
+    ignore?: boolean
+}
+
+export namespace sql {
+    export function set(fields: Record<string, Value>|Array<[Id,Value]>): SqlFrag {
+        if(Array.isArray(fields)) {
+            return new SqlFrag(fields.map(f => `${escapeId(f[0]).toSqlString()}=${escapeValue(f[1]).toSqlString()}`).join(', '));
+        }
+        return new SqlFrag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${escapeValue(fields[fieldName]).toSqlString()}`).join(', '));
+    }
+    export function insert<Schema extends object=Record<string, Value>>(table: Id, data: Partial<Schema>|Array<[Id,Value]>, options?: InsertOptions): SqlFrag {
+        let q = sql`INSERT ${sql.raw(options?.ignore ? 'IGNORE ' : '')}INTO ${escapeId(table)} SET ${sql.set(data as any)}`;
+        if (options?.ignoreDupes) {
+            if(options?.updateOnDupe) {
+                throw new Error("`ignoreDupes` and `updateOnDupe` are incompatible")
+            }
+            let firstCol: Id;
+            if (Array.isArray(data)) {
+                firstCol = data[0][0];
+            } else {
+                firstCol = Object.keys(data)[0];
+            }
+            const escCol = new SqlFrag(_escapeIdLoose(firstCol));
+            q = sql`${q} ON DUPLICATE KEY UPDATE ${escCol}=VALUES(${escCol})`;
+        }
+        if(options?.updateOnDupe) {
+            let cols: Id[];
+            if(Array.isArray(data)) {
+                cols = data.map(f => f[0]);
+            } else {
+                cols = Object.keys(data);
+            }
+            q = sql`${q} ON DUPLICATE KEY UPDATE ${cols.map(col =>{
+                const escCol = new SqlFrag(_escapeIdLoose(col));
+                return sql`${escCol}=VALUES(${escCol})`
+            })}`;
+        }
+        return q;
+    }
+
+    export function as(fields: Record<string, Id>|Array<[Id,string]>): SqlFrag {
+        if(Array.isArray(fields)) {
+            return new SqlFrag(fields.map(f => `${escapeId(f[0]).toSqlString()} AS ${_escapeString(f[1])}`).join(', '));
+        }
+        return new SqlFrag(Object.keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeString(alias)}`).join(', '));
+    }
+    export function raw(sqlString: string | SqlFrag): SqlFrag {
+        if (sqlString instanceof SqlFrag) return sqlString;
+        return new SqlFrag(sqlString);
+    }
+    export function timestamp(value: moment.MomentInput, outputTimezone?: string | null, inputTimezone?: string | null, fsp?: number | null): SqlFrag {
+        // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
+        // https://momentjs.com/docs/#/displaying/format/
+        const date = makeMoment(value, outputTimezone, inputTimezone);
+        let frac = '';
+        if (fsp != null) {
+            if (fsp < 0 || fsp > 6) {
+                // https://dev.mysql.com/doc/refman/8.0/en/date-and-time-type-overview.html
+                throw new Error(`fsp out of range: ${fsp}`);
+            } else if (fsp > 0) {
+                frac = '.' + 'S'.repeat(fsp);
+            }
+        } else if (date.milliseconds() !== 0) {
+            frac = '.SSS';
+        }
+
+        return new SqlFrag(`TIMESTAMP'${date.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
+    }
+    export function point(x: number, y: number): SqlFrag  {
+        return sql`PointFromText(${`POINT(${x} ${y})`})`;
+    }
+    export function polygon(points: PointArray, autoComplete = true): SqlFrag  {
+        // https://dev.mysql.com/doc/refman/5.7/en/gis-data-formats.html
+        // https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry#Well-known_binary
+        if (!points.length) throw new Error("Cannot create an empty polygon");
+        points = toPairs(points);
+        if (autoComplete) {
+            const l = points.length - 1;
+            if (!(points[0][0] === points[l][0] && points[0][1] === points[l][1])) {
+                points.push([points[0][0], points[0][1]]);
+            }
+        }
+        return sql`PolyFromText(${`POLYGON((${
+            points.map(([x, y]) => `${x} ${y}`).join(',')
+        }))`})`;
+    }
+
 }

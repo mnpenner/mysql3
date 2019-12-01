@@ -126,7 +126,20 @@ export class ConnectionPool {
         });
     }
 
-    transaction<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult> {
+    transaction<TResult>(callback: ((conn:PoolConnection) => Promise<TResult>)|SqlFrag[]): Promise<TResult> {
+        if(Array.isArray(callback)) {
+            return this.transaction<any>(async conn => {
+                const results = await Promise.allSettled(callback.map(sql => conn.query(sql)))
+                const mapped = zip(callback, results).map((x,i) => ({
+                    index: i,
+                    query: x[0],
+                    result: x[1],
+                }))
+                const errors = mapped.filter(r => r.result.status === 'rejected');
+                if(errors.length) throw Error(`${errors.length} quer${errors.length === 1 ? 'y' : 'ies'} failed:${errors.map(err => `\n[${err.index}] ${err.query.toSqlString()} :: ${(err.result as any).reason}`).join('')}`);
+                return results; // TODO: is this the best format for the results?
+            });
+        }
         return this.withConnection(async conn => {
             await conn.query(sql`START TRANSACTION`);
             let result: TResult;
@@ -155,6 +168,10 @@ export class ConnectionPool {
     }
 }
 
+function zip<A,B>(a: A[], b: B[]): Array<[A,B]> {
+    if(a.length !== b.length) throw new Error("Cannot zip arrays; lengths differ");
+    return a.map((x,i) => [x,b[i]]);
+}
 
 class PoolConnection {
 

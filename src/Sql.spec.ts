@@ -1,7 +1,7 @@
 import 'mocha';
 import { expect } from 'chai';
 import * as Sql from './Sql';
-import * as moment from 'moment';
+import moment from 'moment';
 import {sql, IntervalUnit, SqlFrag} from "./Sql";
 
 
@@ -59,21 +59,40 @@ describe('escapeLike', () => {
     });
 });
 
-describe('selectAs', () => {
-    it('objects', () => {
+describe('as', () => {
+    it('object', () => {
         expect(Sql.selectAs({
             'aa': 'bb',
             'cc.dd': 'ee.ff',
         }).toSqlString()).to.equal('`aa` AS `bb`, `cc`.`dd` AS `ee.ff`');
+        expect(sql.as({
+            'aa': 'bb',
+            'cc.dd': 'ee.ff',
+            x: ['g','h'],
+        }).toSqlString()).to.equal("`bb` AS 'aa', `ee.ff` AS 'cc.dd', `g`.`h` AS 'x'");
+    });
+    it('array', () => {
+        expect(sql.as([
+            ['aa','bb'],
+            ['cc.dd','ee.ff'],
+            [['gg','hh'],'ii'],
+        ]).toSqlString()).to.equal("`aa` AS 'bb', `cc.dd` AS 'ee.ff', `gg`.`hh` AS 'ii'");
     });
 });
 
 describe('set', () => {
-    it('objects', () => {
-        expect(Sql.set({
+    it('object', () => {
+        expect(sql.set({
             'aa': 'bb',
             'cc.dd': 5,
         }).toSqlString()).to.equal("`aa`='bb', `cc`.`dd`=5");
+    });
+    it('array', () => {
+        expect(sql.set([
+            ['aa','bb'],
+            ['cc.dd',5],
+            [['ee','ff'],null],
+        ]).toSqlString()).to.equal("`aa`='bb', `cc.dd`=5, `ee`.`ff`=NULL");
     });
 });
 
@@ -158,6 +177,23 @@ describe('point', () => {
     })
 })
 
+describe('insert', () => {
+    it('object', () => {
+        expectSql(sql.insert('t',{a:1,b:'foo'}),"INSERT INTO `t` SET `a`=1, `b`='foo'")
+    })
+    it('array', () => {
+        expectSql(sql.insert('t',[['a',1],['b','foo']]),"INSERT INTO `t` SET `a`=1, `b`='foo'")
+    })
+    it('ignore', () => {
+        expectSql(sql.insert('t',{a:1,b:'foo'},{ignore:true}),"INSERT IGNORE INTO `t` SET `a`=1, `b`='foo'")
+    })
+    it('ignore dupes', () => {
+        expectSql(sql.insert('t',{a:1,b:'foo'},{ignoreDupes: true}),"INSERT INTO `t` SET `a`=1, `b`='foo' ON DUPLICATE KEY UPDATE `a`=VALUES(`a`)")
+    })
+    it('update on dupe', () => {
+        expectSql(sql.insert('t',{'a.b':1,c:'foo'},{updateOnDupe: true}),"INSERT INTO `t` SET `a`.`b`=1, `c`='foo' ON DUPLICATE KEY UPDATE `a`.`b`=VALUES(`a`.`b`), `c`=VALUES(`c`)")
+    })
+})
 
 describe('interval', () => {
     it('creates intervals', () => {
@@ -167,8 +203,12 @@ describe('interval', () => {
     })
 })
 
+function normalizeSql(sql: string): string {
+    return sql.replace(/\s*,\s*/g,', ');
+}
+
 function expectSql(query: SqlFrag, result: string) {
-    return expect(query.toSqlString()).to.equal(result);
+    return expect(normalizeSql(query.toSqlString())).to.equal(normalizeSql(result));
 }
 
 describe('sql', () => {
@@ -181,7 +221,8 @@ describe('sql', () => {
         expect(sql`select ${Sql.raw('foo')}`.toSqlString()).to.equal('select foo');
         expect(sql`select ${Buffer.from([0x12,0xAB])}`.toSqlString()).to.equal(`select x'12ab'`);
         expect(sql`select ${Sql.selectAs({a:'b',c:'4'})}`.toSqlString()).to.equal("select `a` AS `b`, `c` AS `4`");
-        // TODO arrays?? select * from t where x in (?)
+        expectSql(sql`select * from t where x in (${[1,2,'x']})`, "select * from t where x in (1,2,'x')")
+        expectSql(sql`select * from t where x in (${[1,2,'x']})`, "select * from t where x in (1,2,'x')")
     })
 
     it('prevents classical SQL injection', () => {

@@ -8,21 +8,25 @@
         "module": "commonjs",
         "noImplicitAny": true,
         "suppressImplicitAnyIndexErrors": false,
-        "removeComments": true,
+        "removeComments": false,
         "preserveConstEnums": false,
         "sourceMap": true,
-        "lib": ["es2017","esnext.asynciterable"],
+        "lib": ["esnext"],
         "skipLibCheck": true,
         "outDir": "dist",
         "target": "esnext",
         "declaration": true,
         "resolveJsonModule": true,
-        "esModuleInterop": false
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true
     },
     "files": [
-        "src/index"
+        "src/index.ts"
     ],
     "exclude": [
         "node_modules"
+    ],
+    "include": [
+        "src/**/*.d.ts"
     ]
 }

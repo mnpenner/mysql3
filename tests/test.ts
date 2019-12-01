@@ -1,16 +1,24 @@
-import credentials = require('./secret.json');
+import credentials from './secret.json';
 import {ConnectionPool, sql,raw} from "../src";
 import * as util from 'util';
 import * as mysql from "../src";
 import * as crypto from 'crypto';
 
-
+interface TestTable {
+    bigint: bigint|null
+    buffer: Buffer|null
+    str: string|null
+    bool: boolean|null
+}
 
 async function main(args: string[]) {
 
     const pool = new ConnectionPool({
         ...credentials,
         printQueries: true,
+        initSql: [
+            sql`set sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_UNSIGNED_SUBTRACTION,PAD_CHAR_TO_FULL_LENGTH,NO_AUTO_CREATE_USER'`,
+        ]
     });
 
     dump(await pool.query(sql`select * from _test`));
@@ -28,10 +36,25 @@ async function main(args: string[]) {
     // dump(result[0].x === badString);
 
     try {
-        await pool.transaction(async conn => {
-            await conn.query(sql`insert into _test set str='a', bool=1`)
-            await conn.query(sql`insert into _test set str='b', bool='donkey'`)
-        })
+        await pool.transaction([
+            sql.insert('_test',{
+                str: 'a',
+                bigint: 'rascal'
+            }),
+            sql.insert<TestTable>(['demo_kmbookings','_test'],{
+                str: 'b',
+                bool: true
+            }),
+            sql.insert('_test',{
+                str: 'c',
+                bool: 'donkey'
+            }),
+        ])
+
+        await pool.transaction(async conn => Promise.all([
+            conn.query(sql`insert into _test set str='a', bool=1`),
+            conn.query(sql`insert into _test set str='b', bool='donkey'`),
+        ]))
     } catch(err) {
         console.error('Transaction failed: ',err.message);
     }
