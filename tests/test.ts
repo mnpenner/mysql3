@@ -21,42 +21,46 @@ async function main(args: string[]) {
         ]
     });
 
-    dump(await pool.query(sql`select * from _test`));
-    // dump(await pool.query(sql`select * from zones`));
-    dump(await pool.query(sql`select '💩', ${"💩"}`));
-    dump(await pool.query(sql`set character_set_results='utf8mb4'`));
-    dump(await pool.query(sql`select '💩', ${"💩"}`));
-    // dump(results);
+    // dump(await pool.query(sql`select * from _test`));
+    // // dump(await pool.query(sql`select * from zones`));
+    // dump(await pool.query(sql`select '💩', ${"💩"}`));
+    // dump(await pool.query(sql`set character_set_results='utf8mb4'`));
+    // dump(await pool.query(sql`select '💩', ${"💩"}`));
+    // // dump(results);
+    //
+    // // testInject(pool);
+    //
+    // // const badString = "'foo\\0''\"\\b\\n\\r\\t\\Z\\\\%_\v\fbar'";
+    // // const result = await pool.query(sql`select ${badString} as x`) as any[];
+    // // dump(result);
+    // // dump(result[0].x === badString);
+    //
+    // try {
+    //     await pool.transaction([
+    //         sql.insert('_test',{
+    //             str: 'a',
+    //             bigint: 'rascal'
+    //         }),
+    //         sql.insert<TestTable>(['demo_kmbookings','_test'],{
+    //             str: 'b',
+    //             bool: true
+    //         }),
+    //         sql.insert('_test',{
+    //             str: 'c',
+    //             bool: 'donkey'
+    //         }),
+    //     ])
+    //
+    //     await pool.transaction(async conn => Promise.all([
+    //         conn.query(sql`insert into _test set str='a', bool=1`),
+    //         conn.query(sql`insert into _test set str='b', bool='donkey'`),
+    //     ]))
+    // } catch(err) {
+    //     console.error('Transaction failed: ',err.message);
+    // }
 
-    // testInject(pool);
-
-    // const badString = "'foo\\0''\"\\b\\n\\r\\t\\Z\\\\%_\v\fbar'";
-    // const result = await pool.query(sql`select ${badString} as x`) as any[];
-    // dump(result);
-    // dump(result[0].x === badString);
-
-    try {
-        await pool.transaction([
-            sql.insert('_test',{
-                str: 'a',
-                bigint: 'rascal'
-            }),
-            sql.insert<TestTable>(['demo_kmbookings','_test'],{
-                str: 'b',
-                bool: true
-            }),
-            sql.insert('_test',{
-                str: 'c',
-                bool: 'donkey'
-            }),
-        ])
-
-        await pool.transaction(async conn => Promise.all([
-            conn.query(sql`insert into _test set str='a', bool=1`),
-            conn.query(sql`insert into _test set str='b', bool='donkey'`),
-        ]))
-    } catch(err) {
-        console.error('Transaction failed: ',err.message);
+    for await(const bk of pool.stream<{id:number}>(sql`select id from bookings order by id`)) {
+        console.log(bk.id);
     }
 
 

@@ -101,7 +101,7 @@ function _escapeValue(value: Value): string {
     if(value === null) {
         return 'NULL';
     }
-    throw new Error("Unsupported value type")
+    throw new Error(`Unsupported value type: ${value}`)
 }
 
 const CHARS_REGEX = /[\x00\b\n\r\t\x1A'\\]/gu;

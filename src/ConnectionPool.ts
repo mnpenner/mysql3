@@ -109,9 +109,38 @@ export class ConnectionPool {
     }
 
 
-    // stream<TRecord extends object=Record<string,any>>(query: SqlFrag): AsyncIterable<TRecord> {
-    //     // TODO
-    // }
+    async* stream<TRecord extends object = Record<string, any>>(query: SqlFrag): AsyncGenerator<TRecord, void, any> {
+        const sql = query.toSqlString();
+
+        if (this.config.printQueries) {
+            const hisql = highlight(sql, {language: 'sql', ignoreIllegals: true});
+            console.log(hisql);
+        }
+
+        let results: TRecord[] = [];
+        let resolve: () => void;
+        let promise = new Promise(r => resolve = r);
+        let done = false;
+
+        this.pool.query(sql)
+            .on('error', err => {
+                throw err;
+            })
+            .on('result', row => {
+                resolve();
+                results.push(row);
+                promise = new Promise(r => resolve = r);
+            })
+            .on('end', () => {
+                done = true;
+            })
+
+        while (!done) {
+            await promise;
+            yield* results;
+            results = [];
+        }
+    }
 
     withConnection<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult> {
         return new Promise((resolve, reject) => {

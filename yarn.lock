@@ -2,27 +2,6 @@
 # yarn lockfile v1
 
 
-"@async-generators/from-emitter@^0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@async-generators/from-emitter/-/from-emitter-0.3.0.tgz#3496bf2a25f40ddbf2bcf5873ae3ceb3f4aa2dc4"
-  integrity sha512-9ne/GfJfbw77wuA08WtuNIvMhpDwAEPT/GX/Dn33y/Bu1zKqO0bOWmcWTpLiHrO2vedEbW0GihfkG7EINEghsA==
-  dependencies:
-    "@async-generators/subject" "^0.4"
-    "@async-generators/terminator" "^0.4"
-
-"@async-generators/subject@^0.4":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/@async-generators/subject/-/subject-0.4.0.tgz#ca411ae5e07f800c886ad51b67dc8ed710c27d00"
-  integrity sha512-ydMe58ouMupnJlvBq6SaG6ranw1uX6rcAfAVE37oNJLen9RJ1+sY6yju8xp6en8RwWn3gBtAx03ot1Ycr3U0QQ==
-  dependencies:
-    "@async-generators/terminator" "^0.4.0"
-    events "^1.1.1"
-
-"@async-generators/terminator@^0.4", "@async-generators/terminator@^0.4.0":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/@async-generators/terminator/-/terminator-0.4.0.tgz#a2aa109337fdea375905b8df8596376ab237bbc0"
-  integrity sha512-Kj08FqHgdx4QZ1mwJrlN3L2MWNNWHHWSQezfClxMUvGU1pYjoRa/4Yev1U/2Y71aqDDXEYC7pr13HNv7Un7Kog==
-
 "@babel/cli@^7.7.4":
   version "7.7.4"
   resolved "https://registry.yarnpkg.com/@babel/cli/-/cli-7.7.4.tgz#38804334c8db40209f88c69a5c90998e60cca18b"
@@ -1322,11 +1301,6 @@ esutils@^2.0.2:
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/esutils/-/esutils-2.0.3.tgz#74d2eb4de0b8da1293711910d50775b9b710ef64"
   integrity sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==
-
-events@^1.1.1:
-  version "1.1.1"
-  resolved "https://registry.yarnpkg.com/events/-/events-1.1.1.tgz#9ebdb7635ad099c70dcc4c2a1f5004288e8bd924"
-  integrity sha1-nr23Y1rQmccNzEwqH1AEKI6L2SQ=
 
 expand-brackets@^2.1.4:
   version "2.1.4"
