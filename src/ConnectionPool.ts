@@ -46,6 +46,17 @@ export type FieldInfo = Omit<_FieldInfo, 'type'> & {
     geometry(): GeometryType | null,
 }
 
+export interface OkPacket {
+    fieldCount: number,
+    affectedRows: number,
+    insertId: number,
+    serverStatus: number,
+    warningCount: number,
+    message: string,
+    protocol41: boolean,
+    changedRows: number
+}
+
 
 function typeCast(field: FieldInfo, next: NextFn): any {
     switch (field.type) {
@@ -82,6 +93,7 @@ export class ConnectionPool {
             ...config,
         };
         let {sqlMode,foreignKeyChecks,safeUpdates,printQueries,initSql,...other} = this.config;
+        // console.log(other);
         this.pool = mysql.createPool(other);
 
         const connQueries = initSql ? [...initSql] : [];
@@ -108,6 +120,9 @@ export class ConnectionPool {
         return this.withConnection(conn => conn.query(query))
     }
 
+    exec(query: SqlFrag): Promise<OkPacket> {
+        return this.withConnection(conn => conn.query(query))
+    }
 
     async* stream<TRecord extends object = Record<string, any>>(query: SqlFrag): AsyncGenerator<TRecord, void, any> {
         const sql = query.toSqlString();
@@ -127,8 +142,8 @@ export class ConnectionPool {
                 throw err;
             })
             .on('result', row => {
-                resolve();
                 results.push(row);
+                resolve();
                 promise = new Promise(r => resolve = r);
             })
             .on('end', () => {
@@ -208,7 +223,7 @@ class PoolConnection {
 
     }
 
-    query<TRecord extends object=Record<string,any>>(query: SqlFrag): Promise<TRecord[]> {
+    query(query: SqlFrag): Promise<any> {
         return new Promise((resolve, reject) => {
             const sql = query.toSqlString();
             if (this.printQueries) {

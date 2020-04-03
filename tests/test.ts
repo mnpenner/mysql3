@@ -18,7 +18,8 @@ async function main(args: string[]) {
         printQueries: true,
         initSql: [
             sql`set sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_UNSIGNED_SUBTRACTION,PAD_CHAR_TO_FULL_LENGTH,NO_AUTO_CREATE_USER'`,
-        ]
+        ],
+        connectTimeout: 30000,
     });
 
     // dump(await pool.query(sql`select * from _test`));
@@ -59,7 +60,7 @@ async function main(args: string[]) {
     //     console.error('Transaction failed: ',err.message);
     // }
 
-    for await(const bk of pool.stream<{id:number}>(sql`select id from bookings order by id`)) {
+    for await(const bk of pool.stream<{id:number}>(sql`select id from bookings order by id limit 3`)) {
         console.log(bk.id);
     }
 
