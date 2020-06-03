@@ -18,7 +18,8 @@
         "declaration": true,
         "resolveJsonModule": true,
         "esModuleInterop": true,
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        "isolatedModules": true
     },
     "files": [
         "src/index.ts"

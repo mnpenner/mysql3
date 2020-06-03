@@ -1,8 +1,7 @@
 import * as mysql from 'mysql';
-import {PoolConfig as _PoolConfig, Pool, TypeCast as _TypeCast, FieldInfo as _FieldInfo, Types as _Types} from "mysql";
+import {PoolConfig as _PoolConfig, Pool, FieldInfo as _FieldInfo} from "mysql";
 import {sql, SqlFrag} from './Sql';
 import highlight from 'cli-highlight';
-import {inspect} from "util";
 import {GeometryType} from "mysql";
 import SqlMode from "./SqlMode";
 import {PoolConnection as _PoolConnection} from "mysql";
@@ -36,11 +35,25 @@ export interface PoolConfig extends Omit<_PoolConfig,'typeCast'|'supportBigNumbe
     initSql?: Array<SqlFrag>
 }
 
+
 export type NextFn = () => void
-export type Types = keyof typeof _Types
-export type FieldInfo = Omit<_FieldInfo, 'type'> & {
-    type: Types,
-    length: number,
+export type Types = 'DECIMAL'|'TINY'|'SHORT'|'LONG'|'FLOAT'|'DOUBLE'|'NULL'|'TIMESTAMP'|'LONGLONG'|'INT24'|'DATE'|'TIME'|'DATETIME'|'YEAR'|'NEWDATE'|'VARCHAR'|'BIT'|'TIMESTAMP2'|'DATETIME2'|'TIME2'|'JSON'|'NEWDECIMAL'|'ENUM'|'SET'|'TINY_BLOB'|'MEDIUM_BLOB'|'LONG_BLOB'|'BLOB'|'VAR_STRING'|'STRING'|'GEOMETRY'
+
+export interface FieldInfo {
+    catalog: string;
+    db: string;
+    table: string;
+    orgTable: string;
+    name: string;
+    orgName: string;
+    charsetNr: number;
+    length: number;
+    type: Types;
+    flags: number;
+    decimals: number;
+    default?: string;
+    zeroFill: boolean;
+    protocol41: boolean;
     string(): string | null,
     buffer(): Buffer | null,
     geometry(): GeometryType | null,
@@ -118,6 +131,21 @@ export class ConnectionPool {
 
     query<TRecord extends object=Record<string,any>>(query: SqlFrag): Promise<TRecord[]> {
         return this.withConnection(conn => conn.query(query))
+    }
+
+    async row<TRecord extends object=Record<string,any>>(query: SqlFrag): Promise<TRecord|null> {
+        const rows = await this.query<TRecord>(sql`select * from (${query}) _query limit 1`)
+        return rows.length ? rows[0] : null;
+    }
+
+    async value<TValue=string>(query: SqlFrag): Promise<TValue|null> {
+        const row = await this.row(query)
+        if(row != null) {
+            const keys = Object.keys(row)
+            if(keys.length !== 1) throw new Error(`Expected exactly 1 field in query, got ${keys.length}`)
+            return row[keys[0]]
+        }
+        return null
     }
 
     exec(query: SqlFrag): Promise<OkPacket> {
