@@ -176,11 +176,13 @@ export class ConnectionPool {
             })
             .on('end', () => {
                 done = true;
+                resolve();
             })
 
-        while (!done) {
+        for(;;) {
             await promise;
             yield* results;
+            if(done) break
             results = [];
         }
     }
