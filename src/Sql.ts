@@ -243,9 +243,9 @@ export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag 
     let out = [];
     let i = 0;
     for (; i < values.length; ++i) {
-        out.push(strings.raw[i], escapeValue(values[i]).toSqlString());
+        out.push(strings[i], escapeValue(values[i]).toSqlString());
     }
-    out.push(strings.raw[i]);
+    out.push(strings[i]);
     return new SqlFrag(out.join(''));
 }
 

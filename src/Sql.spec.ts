@@ -245,3 +245,9 @@ describe('sql', () => {
         expectSql(sql`SELECT * FROM foo WHERE bar = ${input} LIMIT 1`,"SELECT * FROM foo WHERE bar = '\x81'' OR 1=1 #' LIMIT 1")
     });
 })
+
+describe('toSqlString', () => {
+    it("doesn't add extra backslashes", () => {
+        expectSql(sql`select * from oauth where provider='GOOGLE' and \`key\`=${555}`,"select * from oauth where provider='GOOGLE' and `key`=555")
+    })
+})

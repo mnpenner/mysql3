@@ -140,12 +140,14 @@ export class ConnectionPool {
 
     async value<TValue=string>(query: SqlFrag): Promise<TValue|null> {
         const row = await this.row(query)
-        if(row != null) {
-            const keys = Object.keys(row)
-            if(keys.length !== 1) throw new Error(`Expected exactly 1 field in query, got ${keys.length}`)
-            return row[keys[0]]
-        }
-        return null
+        if(!row) return null
+        const keys = Object.keys(row)
+        if(keys.length !== 1) throw new Error(`Expected exactly 1 field in query, got ${keys.length}`)
+        return row[keys[0]]
+    }
+
+    async exists<TValue=string>(query: SqlFrag): Promise<boolean> {
+        return Boolean(await this.value<0|1>(sql`select exists(${query})`))
     }
 
     exec(query: SqlFrag): Promise<OkPacket> {
