@@ -146,7 +146,7 @@ export class ConnectionPool {
         return row[keys[0]]
     }
 
-    async exists<TValue=string>(query: SqlFrag): Promise<boolean> {
+    async exists(query: SqlFrag): Promise<boolean> {
         return Boolean(await this.value<0|1>(sql`select exists(${query})`))
     }
 
@@ -174,7 +174,6 @@ export class ConnectionPool {
             .on('result', row => {
                 results.push(row);
                 resolve();
-                promise = new Promise(r => resolve = r);
             })
             .on('end', () => {
                 done = true;
@@ -185,6 +184,7 @@ export class ConnectionPool {
             await promise;
             yield* results;
             if(done) break
+            promise = new Promise(r => resolve = r);
             results = [];
         }
     }
@@ -217,7 +217,7 @@ export class ConnectionPool {
             });
         }
         return this.withConnection(async conn => {
-            await conn.query(sql`START TRANSACTION`);
+            await conn.query(sql`START TRANSACTION`);  // TODO: change to exec
             let result: TResult;
             try {
                 result = await callback(conn);
@@ -268,4 +268,6 @@ class PoolConnection {
             })
         })
     }
+
+    // TODO: add all the other query methods from ConnectionPool; figure out how to share them
 }
