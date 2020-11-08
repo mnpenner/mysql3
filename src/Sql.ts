@@ -16,7 +16,7 @@ export class SqlFrag {
     }
 }
 
-function isSafe(x: any): x is SqlFrag {
+export function isFrag(x: any): x is SqlFrag {
     return x instanceof SqlFrag;
 }
 
@@ -63,7 +63,7 @@ export function polygon(...args: Parameters<typeof sql.polygon>) {
 }
 
 export function escapeValue(value: Value): SqlFrag {
-    if (isSafe(value)) return value;
+    if (isFrag(value)) return value;
     return new SqlFrag(_escapeValue(value));
 }
 
@@ -77,10 +77,11 @@ export function escapeLike(value: string, escChar:string = '\\'): string {
 }
 
 function _escapeValue(value: Value): string {
-    if (isSafe(value)) {
+    if (isFrag(value)) {
         return value.toSqlString();
     }
     if(Array.isArray(value)) {
+        if(!value.length) return '/*empty*/NULL'
         return value.map(v => _escapeValue(v)).join(',');
     }
     if(Buffer.isBuffer(value)) {
@@ -121,19 +122,19 @@ function _escapeString(value: string): string {
 }
 
 export function escapeId(id: Id): SqlFrag {
-    if (isSafe(id)) return id;
+    if (isFrag(id)) return id;
     if (Array.isArray(id)) return new SqlFrag(id.map(_escapeIdStrict).join('.'));
     return new SqlFrag(_escapeIdStrict(id));
 }
 
 function _escapeIdLoose(id: Id): string {
-    if(isSafe(id)) return id.toSqlString();
+    if(isFrag(id)) return id.toSqlString();
     if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``').replace(QUAL_GLOBAL_REGEXP, '`.`') + '`';
 }
 
 function _escapeIdStrict(id: Id): string {
-    if(isSafe(id)) return id.toSqlString();
+    if(isFrag(id)) return id.toSqlString();
     if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``') + '`';
 }
@@ -142,7 +143,10 @@ type SingleUnescapedValue = string | number | Buffer | bigint | boolean | null;
 type UnescapedValue = SingleUnescapedValue|SingleUnescapedValue[]
 type SingleValue = SingleUnescapedValue|SqlFrag
 type Value = SingleValue|SingleValue[];
-type UnescapedId = string|[string]|[string,string]|[string,string,string];
+type DatabaseId = string|[string]
+type TableId = string|[string]|[string,string]
+type ColumnId =  string|[string]|[string,string]|[string,string,string];
+type UnescapedId = ColumnId;
 type Id = UnescapedId|SqlFrag;
 
 export function date(value: Date | string | number | moment.Moment, outputTimezone?: string, inputTimezone?: string): SqlFrag {
@@ -341,5 +345,22 @@ export namespace sql {
             points.map(([x, y]) => `${x} ${y}`).join(',')
         }))`})`;
     }
-
+    export function id(id: Id): SqlFrag {
+        return escapeId(id)
+    }
+    export function db(id: DatabaseId): SqlFrag {
+        return escapeId(id)
+    }
+    export function tbl(id: TableId): SqlFrag {
+        return escapeId(id)
+    }
+    export function col(id: ColumnId): SqlFrag {
+        return escapeId(id)
+    }
+    export function columns(columns: Id[]): SqlFrag {
+        return new SqlFrag(columns.map(_escapeIdStrict).join(', '))
+    }
+    export function values(values: Value[][]): SqlFrag {
+        return new SqlFrag(values.map(row => `(${row.map(_escapeValue).join(',')})`).join(',\n'))
+    }
 }

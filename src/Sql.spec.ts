@@ -1,8 +1,8 @@
 import 'mocha';
-import { expect } from 'chai';
+import {expect} from 'chai';
 import * as Sql from './Sql';
+import {IntervalUnit, sql, SqlFrag} from './Sql';
 import moment from 'moment';
-import {sql, IntervalUnit, SqlFrag} from "./Sql";
 
 
 describe('escapeId', () => {
@@ -45,6 +45,10 @@ describe('escapeValue', () => {
     });
     it('null', () => {
         expect(Sql.escapeValue(null).toSqlString()).to.equal(`NULL`);
+    });
+    it('arrays', () => {
+        expectSql(Sql.escapeValue([1, 'two']), String.raw`1,'two'`);
+        expectSql(Sql.escapeValue([]), String.raw`/*empty*/NULL`);
     });
 });
 
@@ -244,6 +248,22 @@ describe('sql', () => {
         const input = "\x81\x27 OR 1=1 #";
         expectSql(sql`SELECT * FROM foo WHERE bar = ${input} LIMIT 1`,"SELECT * FROM foo WHERE bar = '\x81'' OR 1=1 #' LIMIT 1")
     });
+
+    it('ids', () => {
+        expectSql(sql.id(['foo','bar']), '`foo`.`bar`');
+        expectSql(sql.id('foo.bar'), '`foo.bar`');
+        expectSql(sql`using ${sql.db('db')}`, 'using `db`');
+        expectSql(sql`select * from ${sql.tbl(['db','tbl'])}`, 'select * from `db`.`tbl`');
+        expectSql(sql`select ${sql.col(['db','tbl','col'])} from dual`, 'select `db`.`tbl`.`col` from dual');
+    });
+
+    it('columns', () => {
+        expectSql(sql`insert into t (${sql.columns(['foo','bar'])})`, 'insert into t (`foo`,`bar`)');
+    })
+
+    it('values', () => {
+        expectSql(sql`insert into t (foo,bar) values ${sql.values([[1,'2'],[3,'4']])}`, "insert into t (foo,bar) values (1,'2'),(3,'4')");
+    })
 })
 
 describe('toSqlString', () => {
