@@ -27,7 +27,8 @@
         "dev": "rollup -cw",
         "exec": "yarn node -r dotenv/config --enable-source-maps --max-old-space-size=16384 dist/index.js",
         "build": "rollup -c",
-        "test": "jest"
+        "test": "jest",
+        "publish": "cd dist && npm publish"
     },
     "jest": {
         "testEnvironment": "node",
@@ -36,5 +37,12 @@
     },
     "dependencies": {
         "mariadb": "^2.5.2"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/mnpenner/mysql3.git"
+    },
+    "engines": {
+        "node": ">= 10.13"
     }
 }

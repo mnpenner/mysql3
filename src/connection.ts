@@ -4,7 +4,7 @@ import {sql, SqlFrag} from './sql'
 type AsyncFunction = (...args:any[]) => Promise<any>
 
 
-class ConnectionPool {
+export class ConnectionPool {
 
     constructor(private readonly pool: Maria.Pool) {
     }
