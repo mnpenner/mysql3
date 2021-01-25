@@ -1,0 +1,11 @@
+syntax: regexp
+
+\.(log|env|zip|tar|gz|t[gx]z|bak)$
+~$
+(?<![^/])dist/
+(?<![^/])node_modules/
+(?<![^/])Thumbs\.db$
+(?<![^/])\.(?![a-z_-]+((ignore|rc)(\.[a-z_-]+)?)$)  # all dotfiles except *ignore and *rc files
+
+# https://yarnpkg.com/getting-started/qa#which-files-should-be-gitignored
+!(?<![^/])\.yarn/(cache|releases|plugins|sdks|versions)/

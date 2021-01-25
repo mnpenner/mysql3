@@ -1,0 +1,33 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "importHelpers": false,
+        "inlineSources": true,
+        "noEmitOnError": true,
+        "pretty": true,
+        "module": "ESNext",
+        "noImplicitAny": true,
+        "suppressImplicitAnyIndexErrors": false,
+        "removeComments": true,
+        "preserveConstEnums": false,
+        "sourceMap": true,
+        "lib": [
+            "esnext"
+        ],
+        "skipLibCheck": true,
+        "outDir": "dist",
+        "target": "esnext",
+        "declaration": true,
+        "resolveJsonModule": true,
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "isolatedModules": false,
+        "allowSyntheticDefaultImports": true
+    },
+    "include": [
+        "src/**/*.d.ts"
+    ],
+    "files": [
+        "src/index.ts"
+    ]
+}
