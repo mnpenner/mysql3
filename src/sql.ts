@@ -1,28 +1,24 @@
-
-
-
 type SingleUnescapedValue = string | number | Buffer | bigint | boolean | null;
-type UnescapedValue = SingleUnescapedValue|SingleUnescapedValue[]
-type SingleValue = SingleUnescapedValue|SqlFrag
-type Value = SingleValue|SingleValue[];
-type DatabaseId = string|[string]
-type TableId = string|[string]|[string,string]
-type ColumnId =  string|[string]|[string,string]|[string,string,string];
+type UnescapedValue = SingleUnescapedValue | SingleUnescapedValue[]
+type SingleValue = SingleUnescapedValue | SqlFrag
+type Value = SingleValue | SingleValue[];
+type DatabaseId = string | [database: string]
+type TableId = string | [table: string] | [database: string, table: string]
+type ColumnId = string | [column: string] | [table: string, column: string] | [database: string, table: string, column: string];
 type UnescapedId = ColumnId;
-type Id = UnescapedId|SqlFrag;
-type NumberPair = [number, number]
-type PointArray = NumberPair[] | Point[] | LatLng[]
+type Id = UnescapedId | SqlFrag;
+type LatLngPair = [lat: number, lng: number]
+type PointArray = LatLngPair[] | Point[] | LatLngObj[]
 
 interface Point {
     x: number
     y: number
 }
 
-interface LatLng {
+interface LatLngObj {
     lat: number
     lng: number
 }
-
 
 const CHARS_REGEX = /[\x00\b\n\r\t\x1A'\\]/gu;
 const CHARS_ESCAPE_MAP: Record<string,string> = {
@@ -51,15 +47,18 @@ export class SqlFrag {
     }
 }
 
-export function escapeValue(value: Value): SqlFrag {
-    if (isFrag(value)) return value;
-    return new SqlFrag(_escapeValue(value));
-}
-
 export function isFrag(x: any): x is SqlFrag {
     return x instanceof SqlFrag;
 }
 
+function frag(sql: string): SqlFrag {
+    return new SqlFrag(sql)
+}
+
+export function escapeValue(value: Value): SqlFrag {
+    if (isFrag(value)) return value;
+    return frag(_escapeValue(value));
+}
 
 export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag {
     let out = [];
@@ -68,16 +67,15 @@ export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag 
         out.push(strings[i], escapeValue(values[i]).toSqlString());
     }
     out.push(strings[i]);
-    return new SqlFrag(out.join(''));
+    return frag(out.join(''));
 }
-
 
 function _escapeValue(value: Value): string {
     if (isFrag(value)) {
         return value.toSqlString();
     }
     if(Array.isArray(value)) {
-        if(!value.length) return '/*empty*/NULL'
+        if(!value.length) return '/*emptyArr*/NULL'
         return value.map(v => _escapeValue(v)).join(',');
     }
     if(Buffer.isBuffer(value)) {
@@ -110,10 +108,10 @@ function _escapeString(value: string): string {
     return "'" + String(value).replace(CHARS_REGEX,m => CHARS_ESCAPE_MAP[m]) + "'";
 }
 
-export function escapeId(id: Id): SqlFrag {
+function escapeIdStrictFrag(id: Id): SqlFrag {
     if (isFrag(id)) return id;
-    if (Array.isArray(id)) return new SqlFrag(id.map(_escapeIdStrict).join('.'));
-    return new SqlFrag(_escapeIdStrict(id));
+    if (Array.isArray(id)) return frag(id.map(_escapeIdStrict).join('.'));
+    return frag(_escapeIdStrict(id));
 }
 
 
@@ -129,19 +127,17 @@ function _escapeIdStrict(id: Id): string {
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``') + '`';
 }
 
-
-
-function pointPairs(points: PointArray): NumberPair[] {
+function pointPairs(points: PointArray): LatLngPair[] {
     if (!points.length) return [];
     const sample = points[0];
     if (Array.isArray(sample) && sample.length === 2) {
-        return [...points] as NumberPair[];
+        return [...points] as LatLngPair[];
     }
     if (hasOwn(sample, 'x') && hasOwn(sample, 'y')) {
         return (points as Point[]).map(pt => [pt.x, pt.y]);
     }
     if (hasOwn(sample, 'lat') && hasOwn(sample, 'lng')) {
-        return (points as LatLng[]).map(pt => [pt.lat, pt.lng]);
+        return (points as LatLngObj[]).map(pt => [pt.lat, pt.lng]);
     }
     throw new Error("Points are not in an expected format")
 }
@@ -151,22 +147,29 @@ export interface InsertOptions {
      * Ignore duplicate records.
      */
     ignoreDupes?: boolean
+    /**
+     * If a duplicate key is found, update the record to match.
+     */
     updateOnDupe?: boolean
+    /**
+     * Ignore all errors.
+     */
     ignore?: boolean
 }
 
+const EMPTY_OBJECT: Record<string,any> = Object.freeze({__proto__:null})
 
 export namespace sql {
     export function set(fields: Record<string, Value>|Array<[Id,Value]>): SqlFrag {
         if(Array.isArray(fields)) {
-            return new SqlFrag(fields.map(f => `${escapeId(f[0]).toSqlString()}=${escapeValue(f[1]).toSqlString()}`).join(', '));
+            return frag(fields.map(f => `${escapeIdStrictFrag(f[0]).toSqlString()}=${escapeValue(f[1]).toSqlString()}`).join(', '));
         }
-        return new SqlFrag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${escapeValue(fields[fieldName]).toSqlString()}`).join(', '));
+        return frag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${escapeValue(fields[fieldName]).toSqlString()}`).join(', '));
     }
-    export function insert<Schema extends object=Record<string, Value>>(table: Id, data: Partial<Schema>|Array<[Id,Value]>, options?: InsertOptions): SqlFrag {
-        let q = sql`INSERT ${sql.raw(options?.ignore ? 'IGNORE ' : '')}INTO ${escapeId(table)} SET ${sql.set(data as any)}`;
-        if (options?.ignoreDupes) {
-            if(options?.updateOnDupe) {
+    export function insert<Schema extends object=Record<string, Value>>(table: TableId|SqlFrag, data: Partial<Schema>|Array<[ColumnId|SqlFrag,Value]>, options: InsertOptions=EMPTY_OBJECT): SqlFrag {
+        let q = sql`INSERT ${frag(options.ignore ? 'IGNORE ' : '')}INTO ${escapeIdStrictFrag(table)}SET ${sql.set(data as any)}`;
+        if (options.ignoreDupes) {
+            if(options.updateOnDupe) {
                 throw new Error("`ignoreDupes` and `updateOnDupe` are incompatible")
             }
             let firstCol: Id;
@@ -175,10 +178,10 @@ export namespace sql {
             } else {
                 firstCol = Object.keys(data)[0];
             }
-            const escCol = new SqlFrag(_escapeIdLoose(firstCol));
+            const escCol = frag(_escapeIdLoose(firstCol));
             q = sql`${q} ON DUPLICATE KEY UPDATE ${escCol}=VALUES(${escCol})`;
         }
-        if(options?.updateOnDupe) {
+        if(options.updateOnDupe) {
             let cols: Id[];
             if(Array.isArray(data)) {
                 cols = data.map(f => f[0]);
@@ -186,22 +189,22 @@ export namespace sql {
                 cols = Object.keys(data);
             }
             q = sql`${q} ON DUPLICATE KEY UPDATE ${cols.map(col =>{
-                const escCol = new SqlFrag(_escapeIdLoose(col));
+                const escCol = frag(_escapeIdLoose(col));
                 return sql`${escCol}=VALUES(${escCol})`
             })}`;
         }
         return q;
     }
 
-    export function as(fields: Record<string, Id>|Array<[Id,string]>): SqlFrag {
+    export function as(fields: Record<string, ColumnId|SqlFrag>|Array<[ColumnId|SqlFrag,string]>): SqlFrag {
         if(Array.isArray(fields)) {
-            return new SqlFrag(fields.map(f => `${escapeId(f[0]).toSqlString()} AS ${_escapeString(f[1])}`).join(', '));
+            return frag(fields.map(f => `${escapeIdStrictFrag(f[0]).toSqlString()} AS ${_escapeString(f[1])}`).join(', '));
         }
-        return new SqlFrag(Object.keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeString(alias)}`).join(', '));
+        return frag(Object.keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeString(alias)}`).join(', '));
     }
     export function raw(sqlString: string | SqlFrag): SqlFrag {
-        if (sqlString instanceof SqlFrag) return sqlString;
-        return new SqlFrag(sqlString);
+        if (isFrag(sqlString)) return sqlString;
+        return frag(sqlString);
     }
     // export function timestamp(value: moment.MomentInput, outputTimezone?: string | null, inputTimezone?: string | null, fsp?: number | null): SqlFrag {
     //     // https://dev.mysql.com/doc/refman/5.7/en/date-and-time-literals.html
@@ -219,7 +222,7 @@ export namespace sql {
     //         frac = '.SSS';
     //     }
     //
-    //     return new SqlFrag(`TIMESTAMP'${date.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
+    //     return raw(`TIMESTAMP'${date.format(`YYYY-MM-DD HH:mm:ss${frac}`)}'`)
     // }
     export function point(x: number, y: number): SqlFrag  {
         return sql`PointFromText(${`POINT(${x} ${y})`})`;
@@ -240,21 +243,21 @@ export namespace sql {
     //     }))`})`;
     // }
     export function id(id: Id): SqlFrag {
-        return escapeId(id)
+        return escapeIdStrictFrag(id)
     }
     export function db(id: DatabaseId): SqlFrag {
-        return escapeId(id)
+        return escapeIdStrictFrag(id)
     }
     export function tbl(id: TableId): SqlFrag {
-        return escapeId(id)
+        return escapeIdStrictFrag(id)
     }
     export function col(id: ColumnId): SqlFrag {
-        return escapeId(id)
+        return escapeIdStrictFrag(id)
     }
-    export function columns(columns: Id[]): SqlFrag {
-        return new SqlFrag(columns.map(_escapeIdStrict).join(', '))
+    export function columns(columns: Array<ColumnId|SqlFrag>): SqlFrag {
+        return frag(columns.map(_escapeIdStrict).join(', '))
     }
     export function values(values: Value[][]): SqlFrag {
-        return new SqlFrag(values.map(row => `(${row.map(_escapeValue).join(',')})`).join(',\n'))
+        return frag(values.map(row => `(${row.map(_escapeValue).join(',')})`).join(',\n'))
     }
 }

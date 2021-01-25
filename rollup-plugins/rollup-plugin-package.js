@@ -9,6 +9,9 @@ export default (pluginOptions = {}) => ({
         // console.log(await pkgUp());
         const pkgFile = await pkgUp()
 
+        // TODO:
+        // this.addWatchFile(pkgFile)
+
         const pkg = pick(JSON.parse(await FileSystem.readFile(pkgFile, 'utf8')),{
             // https://docs.npmjs.com/cli/v6/configuring-npm/package-json#publishconfig
             name: Path.basename(Path.dirname(pkgFile)),

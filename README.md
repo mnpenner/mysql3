@@ -102,17 +102,14 @@ async function main(pool: ConnectionPool) {
         sql`select now()`,
         sql`select 1+1 as ans`,
     ])
-    console.dir(result, {depth: 3})
+    console.dir(result, {depth: 2})
 }
 ```
 
 ```txt
 [
-  {
-    status: 'fulfilled',
-    value: [ { 'now()': 2021-01-25T14:31:10.000Z }, meta: [ [ColumnDef] ] ]
-  },
-  { status: 'fulfilled', value: [ { ans: 2 }, meta: [ [ColumnDef] ] ] }
+  [ { 'now()': 2021-01-25T15:08:39.000Z }, meta: [ [ColumnDef] ] ],
+  [ { ans: 2 }, meta: [ [ColumnDef] ] ]
 ]
 ```
 
@@ -125,6 +122,65 @@ async function main(pool: ConnectionPool) {
         const profile = await conn.exec(sql.insert('profiles', {userId: user.insertId, name: 'Mark'}))
         return profile.insertId
     })
-    console.log(profileId)
 }
+```
+
+### Examples
+
+```ts
+console.dir(await pool.query(sql`select ${sql.as({mediaType: 'media_type', width: 'width', height: 'height', aspectRatio: 'aspect_ratio'})}
+                                 from ${sql.tbl(['imagegather', 'image_files'])}
+                                 limit 2`), {depth: 1})
+```
+
+```txt
+[
+  {
+    mediaType: 'image/jpeg',
+    width: 296,
+    height: 222,
+    aspectRatio: 1.33333
+  },
+  {
+    mediaType: 'image/jpeg',
+    width: 3264,
+    height: 2448,
+    aspectRatio: 1.33333
+  },
+  meta: [ [ColumnDef], [ColumnDef], [ColumnDef], [ColumnDef] ]
+]
+```
+
+```ts
+console.dir(await pool.query({
+    sql: sql`select media_type,width,height from image_files limit 2`,
+    rowsAsArray: true,
+}), {depth: 1})
+```
+```txt
+[
+  [ 'image/jpeg', 296, 222 ],
+  [ 'image/jpeg', 3264, 2448 ],
+  meta: [ [ColumnDef], [ColumnDef], [ColumnDef] ]
+]
+```
+
+```ts
+console.log(sql`insert into foo set ${sql.set({bar:1,baz:"qu'ux"})}`)
+```
+
+```txt
+SqlFrag { sql: "insert into foo set `bar`=1, `baz`='qu''ux'" }
+```
+
+```ts
+console.log(sql`insert into foo(bar, baz)
+                values ${sql.values([
+                    [1, "qu'ux"],
+                    [2, null],
+                ])}`.toSqlString())
+```
+
+```txt
+insert into foo(bar,baz) values (1,'qu''ux'), (2,NULL)
 ```
