@@ -21,7 +21,7 @@ export class ConnectionPool {
             } finally {
                 conn.release()
             }
-        })
+        }) as any
     }
 
     query = this._fwd('query')
@@ -30,6 +30,41 @@ export class ConnectionPool {
     exists = this._fwd('exists')
 
     close = this.pool.end.bind(this.pool)
+
+    async transaction<TResult>(callback: (conn:PoolConnection) => Promise<TResult>): Promise<TResult>;
+    async transaction<TResult>(callback: SqlFrag[]): Promise<Array<PromiseSettledResult<ReturnType<typeof PoolConnection.prototype.query>>>>;
+    async transaction<TResult>(callback: any): Promise<any> {
+        if(Array.isArray(callback)) {
+            return this.transaction<any>(async conn => {
+                const results = await Promise.allSettled(callback.map(sql => conn.query(sql)))
+                const mapped = zip(callback, results).map((x,i) => ({
+                    index: i,
+                    query: x[0],
+                    result: x[1],
+                }))
+                const errors = mapped.filter(r => r.result.status === 'rejected');
+                if(errors.length) throw Error(`${errors.length} quer${errors.length === 1 ? 'y' : 'ies'} failed:${errors.map(err => `\n[${err.index}] ${err.query.toSqlString()} :: ${(err.result as any).reason}`).join('')}`);
+                return results; // TODO: is this the best format for the results?
+            });
+        }
+
+        const conn = await this.getConnection()
+        try {
+            await conn.beginTransaction()
+            let result: TResult;
+            try {
+                result = await callback(conn)
+            } catch (err) {
+                await conn.rollback()
+                throw err;
+            }
+            await conn.commit()
+            return result
+        } finally {
+            await conn.release()
+        }
+    }
+
 
     get activeConnections() {
         return this.pool.activeConnections()
@@ -43,6 +78,11 @@ export class ConnectionPool {
     get taskQueueSize() {
         return this.pool.taskQueueSize()
     }
+}
+
+function zip<A,B>(a: A[], b: B[]): Array<[A,B]> {
+    if(a.length !== b.length) throw new Error("Cannot zip arrays; lengths differ");
+    return a.map((x,i) => [x,b[i]]);
 }
 
 interface QueryOptions extends Maria.QueryConfig {
@@ -102,6 +142,15 @@ class PoolConnection {
 
 
     release = this.conn.release.bind(this.conn)
+    beginTransaction = this.conn.beginTransaction.bind(this.conn)
+    commit = this.conn.commit.bind(this.conn)
+    rollback = this.conn.rollback.bind(this.conn)
+    ping = this.conn.ping.bind(this.conn)
+    changeUser = this.conn.changeUser.bind(this.conn)
+    isValid = this.conn.isValid.bind(this.conn)
+    close = this.conn.end.bind(this.conn)
+    destroy = this.conn.destroy.bind(this.conn)
+    serverVersion = this.conn.serverVersion.bind(this.conn)
 }
 
 export async function createPool(config: Maria.PoolConfig) {

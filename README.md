@@ -93,3 +93,38 @@ namespace sql {
     function values(values: Value[][]): SqlFrag;
 }
 ```
+
+### Transactions
+
+```ts
+async function main(pool: ConnectionPool) {
+    const result = await pool.transaction([
+        sql`select now()`,
+        sql`select 1+1 as ans`,
+    ])
+    console.dir(result, {depth: 3})
+}
+```
+
+```txt
+[
+  {
+    status: 'fulfilled',
+    value: [ { 'now()': 2021-01-25T14:31:10.000Z }, meta: [ [ColumnDef] ] ]
+  },
+  { status: 'fulfilled', value: [ { ans: 2 }, meta: [ [ColumnDef] ] ] }
+]
+```
+
+OR
+
+```ts
+async function main(pool: ConnectionPool) {
+    const profileId = await pool.transaction(async conn => {
+        const user = await conn.exec(sql.insert('users', {username: 'mpen'}))
+        const profile = await conn.exec(sql.insert('profiles', {userId: user.insertId, name: 'Mark'}))
+        return profile.insertId
+    })
+    console.log(profileId)
+}
+```
