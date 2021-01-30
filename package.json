@@ -1,6 +1,6 @@
 {
     "name": "mysql3",
-    "version": "0.5.1",
+    "version": "0.5.3",
     "license": "UNLICENSED",
     "devDependencies": {
         "@babel/core": "^7.12.10",

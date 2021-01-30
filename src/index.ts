@@ -12,11 +12,14 @@ import {sql} from './sql'
 //     // ])
 //     // console.dir(result, {depth: 2})
 //
-// console.log(sql`insert into foo(bar, baz)
-//                 values ${sql.values([
-//                     [1, "qu'ux"],
-//                     [2, null],
-//                 ])}`.toSqlString())
+//     // console.log(sql`insert into foo(bar, baz)
+//     //                 values ${sql.values([
+//     //                     [1, "qu'ux"],
+//     //                     [2, null],
+//     //                 ])}`.toSqlString())
+//
+//     const res = await pool.count(sql`select * from images`)
+//     console.log(res)
 // }
 //
 //

@@ -28,6 +28,7 @@ export class ConnectionPool {
     row = this._fwd('row')
     value = this._fwd('value')
     exists = this._fwd('exists')
+    count = this._fwd('count')
 
     close = this.pool.end.bind(this.pool)
 
@@ -145,6 +146,10 @@ class PoolConnection {
 
     async exists(query: SqlFrag): Promise<boolean> {
         return Boolean(await this.value<0 | 1>(sql`select exists(${query})`))
+    }
+
+    async count(query: SqlFrag) {
+        return Number(await this.value(sql`select count(*) from (${query}) _query`))
     }
 
     release = this.conn.release.bind(this.conn)

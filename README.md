@@ -43,7 +43,6 @@ function createPool(config: Maria.PoolConfig): Promise<ConnectionPool>
 
 ```ts
 class ConnectionPool {
-    private readonly pool;
     constructor(pool: Maria.Pool);
     getConnection(): Promise<PoolConnection>;
     private _fwd;
@@ -63,7 +62,6 @@ class ConnectionPool {
 
 ```ts
 class PoolConnection {
-    private readonly conn;
     constructor(conn: Maria.PoolConnection);
     query<TRecord extends object = DefaultRecordType>(query: QueryParam): Promise<TRecord[] & {
         [META]: FieldInfo[];
