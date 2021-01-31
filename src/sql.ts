@@ -1,12 +1,21 @@
-type SingleUnescapedValue = string | number | Buffer | bigint | boolean | null;
-type UnescapedValue = SingleUnescapedValue | SingleUnescapedValue[]
-type SingleValue = SingleUnescapedValue | SqlFrag
+type PrimitiveValue = string | number | Buffer | bigint | boolean | null | Date;
+type SingleValue = PrimitiveValue | SqlFrag
 type Value = SingleValue | SingleValue[];
-type DatabaseId = string | [database: string]
-type TableId = string | [table: string] | [database: string, table: string]
-type ColumnId = string | [column: string] | [table: string, column: string] | [database: string, table: string, column: string];
-type UnescapedId = ColumnId;
-type Id = UnescapedId | SqlFrag;
+
+type StrictDatabaseId = [database: string]
+type LooseDatabaseId = StrictDatabaseId | string
+
+type StrictTableId = [database: string, table: string] | [table: string]
+type LooseTableId = StrictTableId | string
+type TableId = LooseTableId | SqlFrag
+
+type StrictColumnId = [column: string] | [table: string, column: string] | [database: string, table: string, column: string]
+type LooseColumnId = StrictColumnId | string;
+type ColumnId = LooseColumnId | SqlFrag
+
+type LooseId = LooseColumnId;
+type Id = LooseId | SqlFrag;
+
 type LatLngPair = [lat: number, lng: number]
 type PointArray = LatLngPair[] | Point[] | LatLngObj[]
 
@@ -96,6 +105,9 @@ function _escapeValue(value: Value): string {
     if(value === null) {
         return 'NULL';
     }
+    if(value instanceof Date) {
+        return `TIMESTAMP'${value.toISOString().slice(0,-1)}'`
+    }
     throw new Error(`Unsupported value type: ${value}`)
 }
 
@@ -144,13 +156,9 @@ function pointPairs(points: PointArray): LatLngPair[] {
 
 export interface InsertOptions {
     /**
-     * Ignore duplicate records.
+     * What to do if a duplicate key is found.
      */
-    ignoreDupes?: boolean
-    /**
-     * If a duplicate key is found, update the record to match.
-     */
-    updateOnDupe?: boolean
+    onDuplicateKey?: DuplicateKey
     /**
      * Ignore all errors.
      */
@@ -159,34 +167,50 @@ export interface InsertOptions {
 
 const EMPTY_OBJECT: Record<string,any> = Object.freeze({__proto__:null})
 
+export enum DuplicateKey {
+    /** Don't insert duplicate records. */
+    IGNORE = 'ignore',
+    /** Update record with new values. */
+    UPDATE = 'update',
+}
+
+// https://stackoverflow.com/questions/65976300/how-to-properly-extend-a-record
+type Columns<T> = keyof T & string
+type Schema<T> = Record<Columns<T>, Value>
+type AnySchema = Record<string, Value>
+type InsertData<T extends Schema<T>> =  T|[column: Columns<T>|ColumnId, value: Value][]
+
+const keys: <T extends object>(o: T) => Array<keyof T & string> = Object.keys
+
+// interface ObjectConstructor {
+//     keys<T extends object>(o: T): Array<keyof T & string>
+// }
+
 export namespace sql {
-    export function set(fields: Record<string, Value>|Array<[Id,Value]>): SqlFrag {
+    export function set<T extends Schema<T>>(fields: InsertData<T>): SqlFrag {
         if(Array.isArray(fields)) {
-            return frag(fields.map(f => `${escapeIdStrictFrag(f[0]).toSqlString()}=${escapeValue(f[1]).toSqlString()}`).join(', '));
+            return frag(fields.map(f => `${_escapeIdStrict(f[0])}=${_escapeValue(f[1])}`).join(', '));
         }
-        return frag(Object.keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${escapeValue(fields[fieldName]).toSqlString()}`).join(', '));
+        return frag(keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${_escapeValue(fields[fieldName])}`).join(', '));
     }
-    export function insert<Schema extends object=Record<string, Value>>(table: TableId|SqlFrag, data: Partial<Schema>|Array<[ColumnId|SqlFrag,Value]>, options: InsertOptions=EMPTY_OBJECT): SqlFrag {
-        let q = sql`INSERT ${frag(options.ignore ? 'IGNORE ' : '')}INTO ${escapeIdStrictFrag(table)}SET ${sql.set(data as any)}`;
-        if (options.ignoreDupes) {
-            if(options.updateOnDupe) {
-                throw new Error("`ignoreDupes` and `updateOnDupe` are incompatible")
-            }
+    export function insert<T extends Schema<T>>(table: TableId, data: InsertData<T>, options: InsertOptions=EMPTY_OBJECT): SqlFrag {
+        let q = sql`INSERT ${frag(options.ignore ? 'IGNORE ' : '')}INTO ${escapeIdStrictFrag(table)} SET ${sql.set(data)}`;
+
+        if (options.onDuplicateKey === DuplicateKey.IGNORE) {
             let firstCol: Id;
             if (Array.isArray(data)) {
-                firstCol = data[0][0];
+                firstCol = data[0][0]
             } else {
-                firstCol = Object.keys(data)[0];
+                firstCol = keys(data)[0];
             }
             const escCol = frag(_escapeIdLoose(firstCol));
-            q = sql`${q} ON DUPLICATE KEY UPDATE ${escCol}=VALUES(${escCol})`;
-        }
-        if(options.updateOnDupe) {
+            q = sql`${q} ON DUPLICATE KEY UPDATE ${escCol}=${escCol}`;
+        } else if(options.onDuplicateKey === DuplicateKey.UPDATE) {
             let cols: Id[];
             if(Array.isArray(data)) {
-                cols = data.map(f => f[0]);
+                cols = data.map(f => f[0] as LooseColumnId);
             } else {
-                cols = Object.keys(data);
+                cols = keys(data);
             }
             q = sql`${q} ON DUPLICATE KEY UPDATE ${cols.map(col =>{
                 const escCol = frag(_escapeIdLoose(col));
@@ -196,11 +220,11 @@ export namespace sql {
         return q;
     }
 
-    export function as(fields: Record<string, ColumnId|SqlFrag>|Array<[ColumnId|SqlFrag,string]>): SqlFrag {
+    export function alias(fields: Record<string, ColumnId>|Array<[column:ColumnId,alias:string]>): SqlFrag {
         if(Array.isArray(fields)) {
-            return frag(fields.map(f => `${escapeIdStrictFrag(f[0]).toSqlString()} AS ${_escapeString(f[1])}`).join(', '));
+            return frag(fields.map(f => `${_escapeIdStrict(f[0])} AS ${_escapeIdStrict(f[1])}`).join(', '));
         }
-        return frag(Object.keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeString(alias)}`).join(', '));
+        return frag(keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeIdStrict(alias)}`).join(', '));
     }
     export function raw(sqlString: string | SqlFrag): SqlFrag {
         if (isFrag(sqlString)) return sqlString;
@@ -245,16 +269,24 @@ export namespace sql {
     export function id(id: Id): SqlFrag {
         return escapeIdStrictFrag(id)
     }
-    export function db(id: DatabaseId): SqlFrag {
+    /** @deprecated */
+    export function db(id: LooseDatabaseId): SqlFrag {
         return escapeIdStrictFrag(id)
     }
-    export function tbl(id: TableId): SqlFrag {
+    /** @deprecated */
+    export function tbl(id: LooseTableId): SqlFrag {
         return escapeIdStrictFrag(id)
     }
-    export function col(id: ColumnId): SqlFrag {
+    /** @deprecated */
+    export function col(id: LooseColumnId): SqlFrag {
         return escapeIdStrictFrag(id)
     }
-    export function columns(columns: Array<ColumnId|SqlFrag>): SqlFrag {
+    export function cols(...columns: Array<ColumnId>): SqlFrag {
+        // TODO: make this even stricter? use max array len of 3
+        return frag(columns.map(_escapeIdStrict).join(', '))
+    }
+    /** @deprecated */
+    export function columns(columns: Array<ColumnId>): SqlFrag {
         return frag(columns.map(_escapeIdStrict).join(', '))
     }
     export function values(values: Value[][]): SqlFrag {

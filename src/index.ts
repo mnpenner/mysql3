@@ -1,9 +1,9 @@
 export {createPool} from './connection'
-export {sql} from './sql'
+export {sql,DuplicateKey} from './sql'
 export type {ConnectionPool} from './connection'
 
-import {ConnectionPool, createPool} from './connection'
-import {sql} from './sql'
+// import {ConnectionPool, createPool} from './connection'
+// import {sql,DuplicateKeyupdate} from './sql'
 
 // async function main(pool: ConnectionPool) {
 //     // const result = await pool.transaction([
