@@ -1,6 +1,5 @@
 # mysql3
 
-
 A small OOP wrapper around [`mariadb`](https://github.com/mariadb-corporation/mariadb-connector-nodejs).
 
 
@@ -10,6 +9,8 @@ A small OOP wrapper around [`mariadb`](https://github.com/mariadb-corporation/ma
 yarn add mysql3
 # or
 npm i mysql3
+# or
+pnpm add mysql3
 ```
 
 ## Usage
@@ -38,21 +39,24 @@ See `tests/test.ts` for more.
 ## API
 
 ```ts
-function createPool(config: Maria.PoolConfig): Promise<ConnectionPool>
+function createPool(config: MariaDB.PoolConfig): Promise<ConnectionPool>
 ```
+
+### Connections
 
 ```ts
 class ConnectionPool {
-    constructor(pool: Maria.Pool);
+    constructor(pool: MariaDB.Pool);
     getConnection(): Promise<PoolConnection>;
     private _fwd;
-    query: <TRecord extends object = Record<string, DefaultValueType>>(query: QueryParam) => Promise<TRecord[] & {
-        meta: Maria.FieldInfo[];
-    }>;
+    query: <TRecord = Record<string, DefaultValueType>>(query: QueryParam) => Promise<QueryResult<TRecord>>;
     row: <TRecord extends object = Record<string, DefaultValueType>>(query: QueryParam) => Promise<TRecord | null>;
     value: <TValue = DefaultValueType>(query: SqlFrag) => Promise<TValue | null>;
     exists: (query: SqlFrag) => Promise<boolean>;
+    count: (query: SqlFrag) => Promise<number>;
     close: () => Promise<void>;
+    transaction<TReturn>(callback: (conn: PoolConnection) => Promise<TReturn>): Promise<TReturn>;
+    transaction<TUnionResults = DefaultRecordType>(callback: SqlFrag[]): Promise<QueryResult<TUnionResults>[]>;
     get activeConnections(): number;
     get totalConnections(): number;
     get idleConnections(): number;
@@ -62,33 +66,46 @@ class ConnectionPool {
 
 ```ts
 class PoolConnection {
-    constructor(conn: Maria.PoolConnection);
-    query<TRecord extends object = DefaultRecordType>(query: QueryParam): Promise<TRecord[] & {
-        [META]: FieldInfo[];
-    }>;
-    exec: ((...args: Parameters<typeof PoolConnection.prototype.query>) => Promise<Maria.UpsertResult>);
+    private readonly conn;
+    constructor(conn: MariaDB.PoolConnection);
+    query<TRecord = DefaultRecordType>(query: QueryParam): Promise<QueryResult<TRecord>>;
+    exec: ((...args: Parameters<typeof PoolConnection.prototype.query>) => Promise<MariaDB.UpsertResult>);
     row<TRecord extends object = DefaultRecordType>(query: QueryParam): Promise<TRecord | null>;
     value<TValue = DefaultValueType>(query: SqlFrag): Promise<TValue | null>;
     exists(query: SqlFrag): Promise<boolean>;
+    count(query: SqlFrag): Promise<number>;
     release: () => void;
+    beginTransaction: () => Promise<void>;
+    commit: () => Promise<void>;
+    rollback: () => Promise<void>;
+    ping: () => Promise<void>;
+    changeUser: (options?: MariaDB.UserConnectionConfig | undefined) => Promise<void>;
+    isValid: () => boolean;
+    close: () => Promise<void>;
+    destroy: () => void;
+    serverVersion: () => string;
 }
 ```
+
+### SQL Strings
 
 ```ts
 sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag
 
 namespace sql {
-    function set(fields: Record<string, Value> | Array<[Id, Value]>): SqlFrag;
-    function insert<Schema extends object = Record<string, Value>>(table: Id, data: Partial<Schema> | Array<[Id, Value]>, options?: InsertOptions): SqlFrag;
-    function as(fields: Record<string, Id> | Array<[Id, string]>): SqlFrag;
+    function set<T extends TableSchema<T>>(fields: InsertData<T>): SqlFrag;
+    function insert<T extends TableSchema<T>>(table: TableId, data: InsertData<T>, options?: InsertOptions): SqlFrag;
+    function alias(fields: Record<string, ColumnId> | Array<[column: ColumnId, alias: string]>): SqlFrag;
     function raw(sqlString: string | SqlFrag): SqlFrag;
     function point(x: number, y: number): SqlFrag;
     function id(id: Id): SqlFrag;
-    function db(id: DatabaseId): SqlFrag;
-    function tbl(id: TableId): SqlFrag;
-    function col(id: ColumnId): SqlFrag;
-    function columns(columns: Id[]): SqlFrag;
+    function cols(...columns: Array<ColumnId>): SqlFrag;
     function values(values: Value[][]): SqlFrag;
+}
+
+enum DuplicateKey {
+    IGNORE = "ignore",
+    UPDATE = "update"
 }
 ```
 
@@ -96,19 +113,13 @@ namespace sql {
 
 ```ts
 async function main(pool: ConnectionPool) {
-    const result = await pool.transaction([
-        sql`select now()`,
-        sql`select 1+1 as ans`,
+    const userId = ouid();
+    const profileId = ouid();
+    await pool.transaction([
+        sql.insert('users', {id: userId, username: 'mpen'}),
+        sql.insert('profiles', {id: profileId, userId, name: "Mark"}),
     ])
-    console.dir(result, {depth: 2})
 }
-```
-
-```txt
-[
-  [ { 'now()': 2021-01-25T15:08:39.000Z }, meta: [ [ColumnDef] ] ],
-  [ { ans: 2 }, meta: [ [ColumnDef] ] ]
-]
 ```
 
 OR
