@@ -1,15 +1,20 @@
-import {promises as FileSystem} from 'fs'
+import {promises as FileSystem, constants as FileConst} from 'fs'
 import Path from 'path'
 import pkgUp from 'pkg-up'
 
+const COPY_FILES = ['LICENSE']
 
 export default (pluginOptions = {}) => {
     let pkgFile;
+    let pkgDir;
+    let build = 0
+    const isWatch = process.env.ROLLUP_WATCH === 'true'
 
     return {
         name: 'rollup-plugin-package',
         async buildStart(inputOptions) {
             pkgFile = await pkgUp()
+            pkgDir = Path.dirname(pkgFile)
             this.addWatchFile(pkgFile)
 
             // console.dir(inputOptions,{depth:1,maxStringLength :32})
@@ -23,12 +28,12 @@ export default (pluginOptions = {}) => {
             // TODO:
             // this.addWatchFile(pkgFile)
 
-            // console.dir(bundle,{depth:1,maxStringLength :32})
+            // console.dir(outputOptions,{depth:1,maxStringLength :32})
 
             const pkg = pick(JSON.parse(await FileSystem.readFile(pkgFile, 'utf8')),{
                 // https://docs.npmjs.com/cli/v6/configuring-npm/package-json#publishconfig
-                name: Path.basename(Path.dirname(pkgFile)),
-                version: undefined,
+                name: Path.basename(pkgDir),
+                version: '0.1.0',
                 description: undefined,
                 license: 'UNLICENSED',
                 dependencies: undefined,
@@ -44,6 +49,11 @@ export default (pluginOptions = {}) => {
                 repository: undefined,
                 keywords: undefined,
             })
+
+            if(isWatch) {
+                pkg.version += `+${++build}`;
+            }
+
             // delete pkg.devDependencies
             // delete pkg.scripts
             // delete pkg.jest
@@ -65,8 +75,24 @@ export default (pluginOptions = {}) => {
                 fileName: 'package.json',
                 source: JSON.stringify(pkg,null,2),
             })
+
+            for(const file of COPY_FILES) {
+                try {
+                    const license = await FileSystem.readFile(Path.join(pkgDir, file))
+                    this.emitFile({
+                        type: 'asset',
+                        fileName: file,
+                        source: license,
+                    })
+                } catch(err) {
+                }
+            }
         }
     }
+}
+
+function exists(path, mode=FileConst.R_OK) {
+    return FileSystem.access(path,mode).then(() => true, () => false)
 }
 
 function pick(obj,defaults) {
