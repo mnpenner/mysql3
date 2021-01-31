@@ -28,7 +28,7 @@ describe('sql', () => {
     })
 
     it("alias", () => {
-        expectSql(sql`select ${sql.alias({a: 'b', 'c.d': '4'})}`, "select `b` AS `a`, `4` AS `c.d`")
+        expectSql(sql`select ${sql.alias({a: 'b', 'c.d': '4',e:sql`count(*)`})}`, "select `b` AS `a`, `4` AS `c.d`, count(*) AS `e`")
         expectSql(sql`select ${sql.alias([['a', 'b'], [['c', 'd'], 'e'], ['f.g', 'h']])}`, "select `a` AS `b`, `c`.`d` AS `e`, `f.g` AS `h`")
     })
 

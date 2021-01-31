@@ -1,6 +1,6 @@
 {
     "name": "mysql3",
-    "version": "0.5.3",
+    "version": "0.5.4",
     "license": "UNLICENSED",
     "dependencies": {
         "mariadb": "^2.5.2"
@@ -29,7 +29,7 @@
     "scripts": {
         "dev": "rollup -cw",
         "exec": "node -r dotenv/config --enable-source-maps --max-old-space-size=16384 dist/index.js",
-        "build": "rm -r dist && rollup -c",
+        "build": "rollup -c",
         "test": "jest",
         "publish": "cd dist && npm publish"
     },

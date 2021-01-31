@@ -5,6 +5,7 @@ import json from '@rollup/plugin-json';
 import commonjs from '@rollup/plugin-commonjs';
 import typescript from 'rollup-plugin-typescript2';
 import packagePlugin from './rollup-plugins/rollup-plugin-package'
+import cleanPlugin from './rollup-plugins/rollup-plugin-clean'
 
 const isWatch = process.env.ROLLUP_WATCH === 'true'
 const isDev = process.env.NODE_ENV === 'development'
@@ -32,6 +33,7 @@ export default {
             extensions: ['.ts','.json']
         }),
         packagePlugin(),
+        cleanPlugin(),
     ],
     watch: {
       buildDelay: 200,

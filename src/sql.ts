@@ -1,6 +1,7 @@
 type PrimitiveValue = string | number | Buffer | bigint | boolean | null | Date;
 type SingleValue = PrimitiveValue | SqlFrag
 type Value = SingleValue | SingleValue[];
+type OptionalValue = Value|undefined
 
 type StrictDatabaseId = [database: string]
 type LooseDatabaseId = StrictDatabaseId | string
@@ -176,24 +177,45 @@ export enum DuplicateKey {
 
 // https://stackoverflow.com/questions/65976300/how-to-properly-extend-a-record
 type Columns<T> = keyof T & string
-type Schema<T> = Record<Columns<T>, Value>
+type TableSchema<T> = Record<Columns<T>, Value>
+// type TableSchema<T> = {[P in keyof T]?: Value}
 type AnySchema = Record<string, Value>
-type InsertData<T extends Schema<T>> =  T|[column: Columns<T>|ColumnId, value: Value][]
+type ColumnValueTuple<T> = [column: Columns<T>|ColumnId, value: Value]
+type InsertData<T extends TableSchema<T>> =  T|ColumnValueTuple<T>[]
 
-const keys: <T extends object>(o: T) => Array<keyof T & string> = Object.keys
+
+function getFields<T extends TableSchema<T>>(o: T) {
+    return Object.keys(o).filter(k => (o as any)[k] !== undefined) as Array<keyof T & string>
+}
+
 
 // interface ObjectConstructor {
 //     keys<T extends object>(o: T): Array<keyof T & string>
 // }
 
+const TRUE_SQL = sql`1`
+const FALSE_SQL = sql`0`
+
 export namespace sql {
-    export function set<T extends Schema<T>>(fields: InsertData<T>): SqlFrag {
+    export function set<T extends TableSchema<T>>(fields: InsertData<T>): SqlFrag {
         if(Array.isArray(fields)) {
-            return frag(fields.map(f => `${_escapeIdStrict(f[0])}=${_escapeValue(f[1])}`).join(', '));
+            const filteredFields = fields.filter(p => p[1] !== undefined)
+            if(!filteredFields.length) throw new Error("No fields defined")
+            return frag(
+                filteredFields
+                    .map(f => `${_escapeIdStrict(f[0])}=${_escapeValue(f[1] as Value)}`)
+                    .join(', ')
+            );
         }
-        return frag(keys(fields).map(fieldName => `${_escapeIdLoose(fieldName)}=${_escapeValue(fields[fieldName])}`).join(', '));
+        const filteredFields = getFields(fields)
+        if(!filteredFields.length) throw new Error("No fields defined")
+        return frag(
+            filteredFields
+                .map(fieldName => `${_escapeIdLoose(fieldName)}=${_escapeValue((fields as AnySchema)[fieldName])}`)
+                .join(', ')
+        );
     }
-    export function insert<T extends Schema<T>>(table: TableId, data: InsertData<T>, options: InsertOptions=EMPTY_OBJECT): SqlFrag {
+    export function insert<T extends TableSchema<T>>(table: TableId, data: InsertData<T>, options: InsertOptions=EMPTY_OBJECT): SqlFrag {
         let q = sql`INSERT ${frag(options.ignore ? 'IGNORE ' : '')}INTO ${escapeIdStrictFrag(table)} SET ${sql.set(data)}`;
 
         if (options.onDuplicateKey === DuplicateKey.IGNORE) {
@@ -201,16 +223,16 @@ export namespace sql {
             if (Array.isArray(data)) {
                 firstCol = data[0][0]
             } else {
-                firstCol = keys(data)[0];
+                firstCol = Object.keys(data)[0];
             }
             const escCol = frag(_escapeIdLoose(firstCol));
             q = sql`${q} ON DUPLICATE KEY UPDATE ${escCol}=${escCol}`;
         } else if(options.onDuplicateKey === DuplicateKey.UPDATE) {
             let cols: Id[];
             if(Array.isArray(data)) {
-                cols = data.map(f => f[0] as LooseColumnId);
+                cols = data.map(f => f[0] as ColumnId);
             } else {
-                cols = keys(data);
+                cols = getFields(data);
             }
             q = sql`${q} ON DUPLICATE KEY UPDATE ${cols.map(col =>{
                 const escCol = frag(_escapeIdLoose(col));
@@ -219,12 +241,14 @@ export namespace sql {
         }
         return q;
     }
+    // TODO: bulkInsert
+    // TODO: update?
 
     export function alias(fields: Record<string, ColumnId>|Array<[column:ColumnId,alias:string]>): SqlFrag {
         if(Array.isArray(fields)) {
             return frag(fields.map(f => `${_escapeIdStrict(f[0])} AS ${_escapeIdStrict(f[1])}`).join(', '));
         }
-        return frag(keys(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeIdStrict(alias)}`).join(', '));
+        return frag(getFields(fields).map(alias => `${_escapeIdStrict(fields[alias])} AS ${_escapeIdStrict(alias)}`).join(', '));
     }
     export function raw(sqlString: string | SqlFrag): SqlFrag {
         if (isFrag(sqlString)) return sqlString;
