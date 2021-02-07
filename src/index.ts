@@ -1,10 +1,14 @@
 export {createPool} from './connection'
 export {sql,DuplicateKey} from './sql'
 export type {ConnectionPool} from './connection'
+export type {PoolConfig} from 'mariadb'
+
+
+
 
 // import {ConnectionPool, createPool} from './connection'
-// import {sql,DuplicateKeyupdate} from './sql'
-
+// import {sql,DuplicateKey} from './sql'
+//
 // async function main(pool: ConnectionPool) {
 //     // const result = await pool.transaction([
 //     //     sql`select now()`,
@@ -18,8 +22,15 @@ export type {ConnectionPool} from './connection'
 //     //                     [2, null],
 //     //                 ])}`.toSqlString())
 //
-//     const res = await pool.count(sql`select * from images`)
-//     console.log(res)
+//     // const res = await pool.count(sql`select * from images`)
+//     // console.log(res)
+//
+//     const imgQuery = sql`select * from images limit 100`
+//     const count = await pool.count(imgQuery)
+//     let i=0;
+//     for await(const img of pool.stream<{starred:boolean|null,date_taken_local:Date|null}>(imgQuery)) {
+//         console.log(`${++i}/${count}`,img.date_taken_local)
+//     }
 // }
 //
 //

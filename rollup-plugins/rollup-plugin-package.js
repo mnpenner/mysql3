@@ -25,11 +25,9 @@ export default (pluginOptions = {}) => {
             // console.log(await pkgUp());
             // const pkgFile = await pkgUp()
 
-            // TODO:
-            // this.addWatchFile(pkgFile)
-
             // console.dir(outputOptions,{depth:1,maxStringLength :32})
 
+            // TODO: support publishConfig https://pnpm.js.org/en/package_json#publishconfig
             const pkg = pick(JSON.parse(await FileSystem.readFile(pkgFile, 'utf8')),{
                 // https://docs.npmjs.com/cli/v6/configuring-npm/package-json#publishconfig
                 name: Path.basename(pkgDir),

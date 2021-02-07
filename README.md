@@ -134,6 +134,19 @@ async function main(pool: ConnectionPool) {
 }
 ```
 
+### Streaming Results
+
+If you need to process many rows, it's better to stream the results than to try to load the entire result set into memory via `query()`:
+
+```ts
+const imgQuery = sql`select * from images`
+const count = await pool.count(imgQuery)
+let i=0;
+for await(const img of pool.stream<{starred:boolean|null,date_taken_local:Date|null}>(imgQuery)) {
+    console.log(`${++i}/${count}`,img.date_taken_local)
+}
+```
+
 ### Examples
 
 ```ts

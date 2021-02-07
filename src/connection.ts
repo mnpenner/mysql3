@@ -1,7 +1,7 @@
 import MariaDB, {FieldInfo} from 'mariadb'
 import {sql, SqlFrag} from './sql'
-
-type AsyncFunction = (...args: any[]) => Promise<any>
+// import stream from 'stream'
+// type AsyncFunction = (...args: any[]) => Promise<any>
 
 
 export class ConnectionPool {
@@ -25,10 +25,21 @@ export class ConnectionPool {
     }
 
     query = this._fwd('query')
+    exec = this._fwd('exec')
     row = this._fwd('row')
     value = this._fwd('value')
     exists = this._fwd('exists')
     count = this._fwd('count')
+
+    async* stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
+        const conn = await this.getConnection()
+        try {
+            yield* conn.stream(query)
+        } finally {
+            conn.release()
+        }
+        return
+    }
 
     close = this.pool.end.bind(this.pool)
 
@@ -150,6 +161,35 @@ class PoolConnection {
 
     async count(query: SqlFrag) {
         return Number(await this.value(sql`select count(*) from (${query}) _query`))
+    }
+
+    async* stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
+        let results: TRecord[] = [];
+        let resolve: () => void;
+        let promise = new Promise<void>(r => resolve = r);
+        let done = false;
+
+        this.conn.queryStream(query.toSqlString())
+            .on('error', err => {
+                throw err;
+            })
+            .on('data', row => {
+                results.push(row);
+                resolve();
+            })
+            .on('end', () => {
+                done = true;
+                resolve();
+            })
+
+        for(;;) {
+            await promise;
+            yield* results;
+            if(done) break
+            promise = new Promise(r => resolve = r);
+            results = [];
+        }
+        return
     }
 
     release = this.conn.release.bind(this.conn)
