@@ -20,7 +20,9 @@ describe('sql', () => {
         expectSql(sql`select ${'foo'}`, `select 'foo'`)
         expectSql(sql`select ${Buffer.from([0x12, 0xAB])}`, `select x'12ab'`)
         expectSql(sql`select * from t where x in (${[1, 2, 'x']})`, "select * from t where x in (1,2,'x')")
-        expectSql(sql`select ${new Date('2021-01-31T07:10:01.312Z')}`, `select TIMESTAMP'2021-01-31T07:10:01.312'`)
+        expectSql(sql`select ${new Date('2021-01-31T07:10:01.302Z')}`, `select TIMESTAMP'2021-01-31 07:10:01.302'`)
+        expectSql(sql`select ${new Date('2021-01-31T07:10:01.310Z')}`, `select TIMESTAMP'2021-01-31 07:10:01.310'`)
+        expectSql(sql`select ${new Date('2021-01-31T07:10:01.000Z')}`, `select TIMESTAMP'2021-01-31 07:10:01'`)
     })
 
     it("raw", () => {

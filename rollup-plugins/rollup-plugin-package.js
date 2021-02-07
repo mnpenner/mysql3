@@ -2,7 +2,7 @@ import {promises as FileSystem, constants as FileConst} from 'fs'
 import Path from 'path'
 import pkgUp from 'pkg-up'
 
-const COPY_FILES = ['LICENSE']
+const COPY_FILES = ['LICENSE','README.md']
 
 export default (pluginOptions = {}) => {
     let pkgFile;

@@ -80,7 +80,7 @@ export function sql(strings: TemplateStringsArray, ...values: Value[]): SqlFrag 
     return frag(out.join(''));
 }
 
-function _escapeValue(value: Value): string {
+export function _escapeValue(value: Value): string {
     if (isFrag(value)) {
         return value.toSqlString();
     }
@@ -107,7 +107,7 @@ function _escapeValue(value: Value): string {
         return 'NULL';
     }
     if(value instanceof Date) {
-        return `TIMESTAMP'${value.toISOString().slice(0,-1)}'`
+        return `TIMESTAMP'${value.toISOString().replace('T', ' ').replace(/(?:\.000)?Z$/, '')}'`
     }
     throw new Error(`Unsupported value type: ${value}`)
 }
@@ -128,13 +128,13 @@ function escapeIdStrictFrag(id: Id): SqlFrag {
 }
 
 
-function _escapeIdLoose(id: Id): string {
+export function _escapeIdLoose(id: Id): string {
     if(isFrag(id)) return id.toSqlString();
     if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``').replace(QUAL_GLOBAL_REGEXP, '`.`') + '`';
 }
 
-function _escapeIdStrict(id: Id): string {
+export function _escapeIdStrict(id: Id): string {
     if(isFrag(id)) return id.toSqlString();
     if(Array.isArray(id)) return id.map(_escapeIdStrict).join('.');
     return '`' + String(id).replace(ID_GLOBAL_REGEXP, '``') + '`';

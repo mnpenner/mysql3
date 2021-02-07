@@ -27,6 +27,7 @@ export class ConnectionPool {
     query = this._fwd('query')
     exec = this._fwd('exec')
     row = this._fwd('row')
+    col = this._fwd('col')
     value = this._fwd('value')
     exists = this._fwd('exists')
     count = this._fwd('count')
@@ -145,6 +146,16 @@ class PoolConnection {
         return rows.length ? rows[0] : null
     }
 
+    async col<TValue=DefaultValueType>(query: SqlFrag): Promise<TValue[]> {
+        const rows = await this.query<any[]>({
+            sql: query,
+            rowsAsArray: true,
+        })
+        if(!rows.length) return []
+        if (rows[0].length !== 1) throw new Error(`Expected exactly 1 field in query, got ${rows[0].length}`)
+        return rows.map(r => r[0])
+    }
+
     async value<TValue = DefaultValueType>(query: SqlFrag): Promise<TValue | null> {
         const row = await this.row<TValue[]>({
             sql: query,
@@ -207,6 +218,7 @@ class PoolConnection {
 export async function createPool(config: MariaDB.PoolConfig) {
     return new ConnectionPool(await MariaDB.createPool({
         supportBigInt: true,
+        dateStrings: true,
         ...config,
     }))
 }
