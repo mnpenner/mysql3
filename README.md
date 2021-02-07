@@ -109,29 +109,51 @@ enum DuplicateKey {
 }
 ```
 
+### Convenience Methods
+
+```ts
+interface User {
+    id: number
+    name: string
+}
+const user: User = await conn.row<User>(sql`select id,name from users where username='mpen'`)
+```
+
+```ts
+const databaseNames: string[] = await conn.col<string>(sql`show databases`)
+```
+
+```ts
+const imageCount: bigint = await pool.value<bigint>(sql`select count(*) from images`)
+```
+
+```ts
+const imageCount: number = await pool.count(sql`select * from images`)
+```
+
+```ts
+const userExists: boolean = await pool.exists(sql`select * from users where username='mpen'`)
+```
+
 ### Transactions
 
 ```ts
-async function main(pool: ConnectionPool) {
-    const userId = ouid();
-    const profileId = ouid();
-    await pool.transaction([
-        sql.insert('users', {id: userId, username: 'mpen'}),
-        sql.insert('profiles', {id: profileId, userId, name: "Mark"}),
-    ])
-}
+const userId = ouid();
+const profileId = ouid();
+await pool.transaction([
+    sql.insert('users', {id: userId, username: 'mpen'}),
+    sql.insert('profiles', {id: profileId, userId, name: "Mark"}),
+])
 ```
 
 OR
 
 ```ts
-async function main(pool: ConnectionPool) {
-    const profileId = await pool.transaction(async conn => {
-        const user = await conn.exec(sql.insert('users', {username: 'mpen'}))
-        const profile = await conn.exec(sql.insert('profiles', {userId: user.insertId, name: 'Mark'}))
-        return profile.insertId
-    })
-}
+const [userId,profileId] = await pool.transaction(async conn => {
+    const user = await conn.exec(sql.insert('users', {username: 'mpen'}))
+    const profile = await conn.exec(sql.insert('profiles', {userId: user.insertId, name: 'Mark'}))
+    return [user.insertId,profile.insertId]
+})
 ```
 
 ### Streaming Results
@@ -147,7 +169,7 @@ for await(const img of pool.stream<{starred:boolean|null,date_taken_local:Date|n
 }
 ```
 
-### Examples
+### More Examples
 
 ```ts
 console.dir(await pool.query(sql`select ${sql.as({mediaType: 'media_type', width: 'width', height: 'height', aspectRatio: 'aspect_ratio'})}
