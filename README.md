@@ -50,10 +50,13 @@ class ConnectionPool {
     getConnection(): Promise<PoolConnection>;
     private _fwd;
     query: <TRecord = Record<string, DefaultValueType>>(query: QueryParam) => Promise<QueryResult<TRecord>>;
+    exec: (query: QueryParam) => Promise<MariaDB.UpsertResult>;
     row: <TRecord extends object = Record<string, DefaultValueType>>(query: QueryParam) => Promise<TRecord | null>;
+    col: <TValue = DefaultValueType>(query: SqlFrag) => Promise<TValue[]>;
     value: <TValue = DefaultValueType>(query: SqlFrag) => Promise<TValue | null>;
     exists: (query: SqlFrag) => Promise<boolean>;
     count: (query: SqlFrag) => Promise<number>;
+    stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined>;
     close: () => Promise<void>;
     transaction<TReturn>(callback: (conn: PoolConnection) => Promise<TReturn>): Promise<TReturn>;
     transaction<TUnionResults = DefaultRecordType>(callback: SqlFrag[]): Promise<QueryResult<TUnionResults>[]>;
@@ -66,21 +69,22 @@ class ConnectionPool {
 
 ```ts
 class PoolConnection {
-    private readonly conn;
     constructor(conn: MariaDB.PoolConnection);
     query<TRecord = DefaultRecordType>(query: QueryParam): Promise<QueryResult<TRecord>>;
     exec: ((...args: Parameters<typeof PoolConnection.prototype.query>) => Promise<MariaDB.UpsertResult>);
     row<TRecord extends object = DefaultRecordType>(query: QueryParam): Promise<TRecord | null>;
+    col<TValue = DefaultValueType>(query: SqlFrag): Promise<TValue[]>;
     value<TValue = DefaultValueType>(query: SqlFrag): Promise<TValue | null>;
     exists(query: SqlFrag): Promise<boolean>;
     count(query: SqlFrag): Promise<number>;
+    stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined>;
     release: () => void;
     beginTransaction: () => Promise<void>;
     commit: () => Promise<void>;
     rollback: () => Promise<void>;
     ping: () => Promise<void>;
     changeUser: (options?: MariaDB.UserConnectionConfig | undefined) => Promise<void>;
-    isValid: () => boolean;
+    get isValid(): boolean;
     close: () => Promise<void>;
     destroy: () => void;
     serverVersion: () => string;

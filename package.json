@@ -1,6 +1,6 @@
 {
     "name": "mysql3",
-    "version": "0.5.13",
+    "version": "0.5.14",
     "license": "LGPL-3.0-or-later",
     "dependencies": {
         "mariadb": "^2.5.2"

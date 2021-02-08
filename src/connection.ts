@@ -209,7 +209,9 @@ class PoolConnection {
     rollback = this.conn.rollback.bind(this.conn)
     ping = this.conn.ping.bind(this.conn)
     changeUser = this.conn.changeUser.bind(this.conn)
-    isValid = this.conn.isValid.bind(this.conn)
+    get isValid() {
+        return this.conn.isValid()
+    }
     close = this.conn.end.bind(this.conn)
     destroy = this.conn.destroy.bind(this.conn)
     serverVersion = this.conn.serverVersion.bind(this.conn)
