@@ -19,7 +19,7 @@ export class ConnectionPool {
             try {
                 return await (conn[method] as any)(...args)
             } finally {
-                conn.release()
+                conn.release()  // TODO: what if release fails? should we at least log something?
             }
         }) as any
     }
@@ -42,7 +42,10 @@ export class ConnectionPool {
         return
     }
 
-    close = this.pool.end.bind(this.pool)
+    // close = this.pool.end.bind(this.pool)
+    close() {
+        return this.pool.end()
+    }
 
     async transaction<TReturn>(callback: (conn: PoolConnection) => Promise<TReturn>): Promise<TReturn>;
     async transaction<TUnionResults=DefaultRecordType>(callback: SqlFrag[]): Promise<QueryResult<TUnionResults>[]>;
@@ -118,7 +121,7 @@ function makeOptions(query: QueryParam) {
 }
 
 export const META = 'meta'
-export type DefaultValueType = string | number | Buffer | boolean | Date | bigint
+export type DefaultValueType = string | number | Buffer | boolean | Date | bigint | null
 export type DefaultRecordType = Record<string, DefaultValueType>
 export type QueryResult<T = DefaultRecordType> = T[] & { [META]: FieldInfo[] }
 
@@ -203,18 +206,22 @@ class PoolConnection {
         return
     }
 
-    release = this.conn.release.bind(this.conn)
-    beginTransaction = this.conn.beginTransaction.bind(this.conn)
-    commit = this.conn.commit.bind(this.conn)
-    rollback = this.conn.rollback.bind(this.conn)
-    ping = this.conn.ping.bind(this.conn)
-    changeUser = this.conn.changeUser.bind(this.conn)
+    release() { return this.conn.release() }
+    beginTransaction() { return this.conn.beginTransaction() }
+    commit() { return this.conn.commit() }
+    rollback() { return this.conn.rollback() }
+    ping() { return this.conn.ping() }
+    changeUser() { return this.conn.changeUser() }
+    close() { return this.conn.end() }
+    destroy() { return this.conn.destroy() }
+
+    get serverVersion() {
+        return this.conn.serverVersion()
+    }
+
     get isValid() {
         return this.conn.isValid()
     }
-    close = this.conn.end.bind(this.conn)
-    destroy = this.conn.destroy.bind(this.conn)
-    serverVersion = this.conn.serverVersion.bind(this.conn)
 }
 
 export async function createPool(config: MariaDB.PoolConfig) {
