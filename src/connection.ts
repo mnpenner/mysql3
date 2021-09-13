@@ -1,16 +1,16 @@
-import MariaDB, {FieldInfo} from 'mariadb'
+import mariadb from 'mariadb'
 import {sql, SqlFrag} from './sql'
 // import stream from 'stream'
 // type AsyncFunction = (...args: any[]) => Promise<any>
+import type * as geojson from 'geojson'
 
+export class ConnectionPool<TDefaultValue> {
 
-export class ConnectionPool {
-
-    constructor(private readonly pool: MariaDB.Pool) {
+    constructor(private readonly pool: mariadb.Pool) {
     }
 
     async getConnection() {
-        return new PoolConnection(await this.pool.getConnection())
+        return new PoolConnection<TDefaultValue>(await this.pool.getConnection())
     }
 
     private _fwd<K extends keyof typeof PoolConnection.prototype>(method: K): typeof PoolConnection.prototype[K] {
@@ -24,7 +24,7 @@ export class ConnectionPool {
         }) as any
     }
 
-    query = this._fwd('query')
+    query = this._fwd('query')  // FIXME: type is not exporting correctly
     exec = this._fwd('exec')
     row = this._fwd('row')
     col = this._fwd('col')
@@ -32,7 +32,7 @@ export class ConnectionPool {
     exists = this._fwd('exists')
     count = this._fwd('count')
 
-    async* stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
+    async* stream<TRecord extends object = Record<string, TDefaultValue>>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
         const conn = await this.getConnection()
         try {
             yield* conn.stream(query)
@@ -47,8 +47,8 @@ export class ConnectionPool {
         return this.pool.end()
     }
 
-    async transaction<TReturn>(callback: (conn: PoolConnection) => Promise<TReturn>): Promise<TReturn>;
-    async transaction<TUnionResults=DefaultRecordType>(callback: SqlFrag[]): Promise<QueryResult<TUnionResults>[]>;
+    async transaction<TReturn>(callback: (conn: PoolConnection<TDefaultValue>) => Promise<TReturn>): Promise<TReturn>;
+    async transaction<TUnionResults=Record<string, TDefaultValue>>(callback: SqlFrag[]): Promise<QueryResult<TUnionResults>[]>;
     async transaction<TResult>(callback: any): Promise<any> {
         if (Array.isArray(callback)) {
             return this.transaction<any>(async conn => {
@@ -105,11 +105,11 @@ function zip<A, B>(a: A[], b: B[]): Array<[A, B]> {
     return a.map((x, i) => [x, b[i]])
 }
 
-interface QueryOptions extends MariaDB.QueryConfig {
+export interface QueryOptions extends mariadb.QueryConfig {
     sql: SqlFrag
 }
 
-type QueryParam = SqlFrag | QueryOptions
+export type QueryParam = SqlFrag | QueryOptions
 
 function makeOptions(query: QueryParam) {
     if (query instanceof SqlFrag) {
@@ -121,16 +121,16 @@ function makeOptions(query: QueryParam) {
 }
 
 export const META = 'meta'
-export type DefaultValueType = string | number | Buffer | boolean | Date | bigint | null
+export type DefaultValueType = string | number | /*FIXME might be coming out wrong*/Buffer | boolean | Date | bigint | null | /*set*/string[] | geojson.Geometry
 export type DefaultRecordType = Record<string, DefaultValueType>
-export type QueryResult<T = DefaultRecordType> = T[] & { [META]: FieldInfo[] }
+export type QueryResult<T> = T[] & { [META]: mariadb.FieldInfo[] }
 
-class PoolConnection {
+export class PoolConnection<TDefaultValue> {
 
-    constructor(private readonly conn: MariaDB.PoolConnection) {
+    constructor(private readonly conn: mariadb.PoolConnection) {
     }
 
-    query<TRecord = DefaultRecordType>(query: QueryParam): Promise<QueryResult<TRecord>> {
+    query<TRecord = Record<string, TDefaultValue>>(query: QueryParam): Promise<QueryResult<TRecord>> {
         const opts = makeOptions(query)
         return this.conn.query({
             ...opts,
@@ -138,9 +138,9 @@ class PoolConnection {
         })
     }
 
-    exec: ((...args: Parameters<typeof PoolConnection.prototype.query>) => Promise<MariaDB.UpsertResult>) = this.query.bind(this) as any
+    exec: ((...args: Parameters<typeof PoolConnection.prototype.query>) => Promise<mariadb.UpsertResult>) = this.query.bind(this) as any
 
-    async row<TRecord extends object = DefaultRecordType>(query: QueryParam): Promise<TRecord | null> {
+    async row<TRecord extends object = Record<string, TDefaultValue>>(query: QueryParam): Promise<TRecord | null> {
         const opts = makeOptions(query)
         const rows = await this.query<TRecord>({
             ...opts,
@@ -149,7 +149,7 @@ class PoolConnection {
         return rows.length ? rows[0] : null
     }
 
-    async col<TValue=DefaultValueType>(query: SqlFrag): Promise<TValue[]> {
+    async col<TValue=TDefaultValue>(query: SqlFrag): Promise<TValue[]> {
         const rows = await this.query<any[]>({
             sql: query,
             rowsAsArray: true,
@@ -159,7 +159,7 @@ class PoolConnection {
         return rows.map(r => r[0])
     }
 
-    async value<TValue = DefaultValueType>(query: SqlFrag): Promise<TValue | null> {
+    async value<TValue = TDefaultValue>(query: SqlFrag): Promise<TValue | null> {
         const row = await this.row<TValue[]>({
             sql: query,
             rowsAsArray: true,
@@ -177,7 +177,7 @@ class PoolConnection {
         return Number(await this.value(sql`select count(*) from (${query}) _query`))
     }
 
-    async* stream<TRecord extends object = DefaultRecordType>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
+    async* stream<TRecord extends object = Record<string, TDefaultValue>>(query: SqlFrag): AsyncGenerator<TRecord, unknown, undefined> {
         let results: TRecord[] = [];
         let resolve: () => void;
         let promise = new Promise<void>(r => resolve = r);
@@ -224,8 +224,8 @@ class PoolConnection {
     }
 }
 
-export async function createPool(config: MariaDB.PoolConfig) {
-    return new ConnectionPool(await MariaDB.createPool({
+export async function createPool<T=DefaultValueType>(config: mariadb.PoolConfig) {
+    return new ConnectionPool<T>(await mariadb.createPool({
         supportBigInt: true,
         dateStrings: true,
         ...config,

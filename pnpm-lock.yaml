@@ -4,7 +4,9 @@ specifiers:
   '@babel/core': ^7.12.10
   '@babel/preset-env': ^7.12.11
   '@babel/preset-typescript': ^7.12.7
-  '@mpen/rollup-preset-tslib': ../rollup-plugins/packages/rollup-preset-tslib
+  '@mpen/rollup-plugin-clean': ^0.1.9
+  '@mpen/rollup-plugin-package': ^0.1.9
+  '@mpen/rollup-preset-tslib': link:..\rollup-plugins\packages\rollup-preset-tslib
   '@rollup/plugin-babel': ^5.2.2
   '@rollup/plugin-commonjs': ^17.0.0
   '@rollup/plugin-json': ^4.1.0
@@ -15,6 +17,7 @@ specifiers:
   '@types/node': ^16.7.12
   builtin-modules: ^3.2.0
   dotenv: ^8.2.0
+  geojson: ^0.5.0
   jest: ^26.6.3
   mariadb: ^2.5.2
   pkg-up: ^3.1.0
@@ -26,12 +29,15 @@ specifiers:
   typescript: ^4.1.3
 
 dependencies:
+  geojson: 0.5.0
   mariadb: 2.5.2
 
 devDependencies:
   '@babel/core': 7.12.10
   '@babel/preset-env': 7.12.11_@babel+core@7.12.10
   '@babel/preset-typescript': 7.12.7_@babel+core@7.12.10
+  '@mpen/rollup-plugin-clean': 0.1.9
+  '@mpen/rollup-plugin-package': 0.1.9
   '@mpen/rollup-preset-tslib': link:../rollup-plugins/packages/rollup-preset-tslib
   '@rollup/plugin-babel': 5.2.3_382ab38cb5074cd8ab108fa5b3e2f72b
   '@rollup/plugin-commonjs': 17.1.0_rollup@2.38.1
@@ -1270,6 +1276,16 @@ packages:
       chalk: 4.1.0
     dev: true
 
+  /@mpen/rollup-plugin-clean/0.1.9:
+    resolution: {integrity: sha512-M53knAH8WJ6TVdHX4SoI54IOyZChPRRxQzjyy0RfoejFrRF7+htuMvCodgytdGZHBZpCK7/EpaFZvNyy1qa2ww==}
+    dev: true
+
+  /@mpen/rollup-plugin-package/0.1.9:
+    resolution: {integrity: sha512-s3ss5DDWD8cnJ0J2rdkFU6xddsWRt9KyuK4XHFH/LxwdtSLxTa/z0joDcqiDZRpscZDSGzWdGQ7cZkLks7Hqkg==}
+    dependencies:
+      pkg-up: 3.1.0
+    dev: true
+
   /@rollup/plugin-babel/5.2.3_382ab38cb5074cd8ab108fa5b3e2f72b:
     resolution: {integrity: sha512-DOMc7nx6y5xFi86AotrFssQqCen6CxYn+zts5KSI879d4n1hggSb4TH3mjVgG17Vc3lZziWWfcXzrEmVdzPMdw==}
     engines: {node: '>= 10.0.0'}
@@ -2404,6 +2420,11 @@ packages:
     engines: {node: '>=6.9.0'}
     dev: true
 
+  /geojson/0.5.0:
+    resolution: {integrity: sha1-PNbJY5m+ZbVu5VWWEW/pGRznAcA=}
+    engines: {node: '>= 0.10'}
+    dev: false
+
   /get-caller-file/2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
@@ -2498,6 +2519,11 @@ packages:
 
   /has-symbols/1.0.1:
     resolution: {integrity: sha512-PLcsoqu++dmEIZB+6totNFKq/7Do+Z0u4oT0zKOJNl3lYK6vGwwu2hjHs+68OEZbTjiUE9bgOABXbP/GvrS0Kg==}
+    engines: {node: '>= 0.4'}
+    dev: true
+
+  /has-symbols/1.0.2:
+    resolution: {integrity: sha512-chXa79rL/UC2KlX17jo3vRGz0azaWEx5tGqZg5pO3NUyEJVB17dMruQlzCCOfUvElghKcm5194+BCRvi2Rv/Gw==}
     engines: {node: '>= 0.4'}
     dev: true
 
@@ -3709,7 +3735,7 @@ packages:
     dependencies:
       call-bind: 1.0.2
       define-properties: 1.1.3
-      has-symbols: 1.0.1
+      has-symbols: 1.0.2
       object-keys: 1.1.1
     dev: true
 
